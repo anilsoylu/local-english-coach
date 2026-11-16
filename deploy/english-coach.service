@@ -1,0 +1,16 @@
+[Unit]
+Description=English Coach (text chat, local LLM)
+After=network-online.target ollama.service
+Wants=ollama.service
+
+[Service]
+User=anilsoylu
+WorkingDirectory=/home/anilsoylu/english-coach
+Environment=COACH_MODEL=gemma4:e4b
+Environment=COACH_ANALYSIS_MODEL=qwen3.5:9b
+ExecStart=/home/anilsoylu/english-coach/.venv/bin/uvicorn coach.server:app --host 127.0.0.1 --port 8765
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

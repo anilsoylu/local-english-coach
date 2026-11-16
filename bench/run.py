@@ -22,6 +22,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from coach.prompts import PROMPT_VERSION, system_prompt  # noqa: E402
 
+# Cases come from different situations, so the bench scenario tells the model to follow the previous line.
+BENCH_SCENARIO = ("Mixed practice. Your previous line shows the situation (small talk, a client call, a stand-up, "
+                  "an interview, a restaurant). Stay in that situation.")
+
 OLLAMA = "http://127.0.0.1:11434"
 OPTIONS = {"num_ctx": 8192, "num_predict": 150, "temperature": 0.7}
 
@@ -30,7 +34,10 @@ EXPLICIT_CORRECTION = re.compile(
     r"we say .* not |it'?s better to say|should be \"",
     re.I,
 )
-TURKISH = re.compile(r"[çğışöüÇĞİŞÖÜ]|\b(ve|bir|bu|çok|ama|değil|nasıl|evet|hayır)\b", re.I)
+# Note: no re.I on the letters, under re.I Python matches "İ"/"ı" against plain "i"/"I".
+TURKISH_CHARS = re.compile(r"[çğışöüÇĞİŞÖÜ]")
+PLACES = re.compile(r"[İI]zmir|[İI]stanbul", re.I)  # proper nouns, not Turkish replies
+TURKISH_WORDS = re.compile(r"\b(ve|bir|bu|çok|ama|değil|nasıl|evet|hayır)\b", re.I)
 # Humanizer tells adapted for speech (spoken chunks like "The thing is" are allowed).
 AI_TELLS = re.compile(
     r"great question|absolutely[!,.]|i'?d be (happy|glad) to|that'?s (amazing|fantastic|wonderful)|"
@@ -50,7 +57,7 @@ def score(case: dict, reply: str) -> dict:
         "short": len(sentences) <= 4 and len(text.split()) <= 60,
         "one_question": q == 1 or (case["kind"] in ("turkish", "help", "unfinished") and q <= 1),
         "no_explicit_correction": not EXPLICIT_CORRECTION.search(text),
-        "no_turkish": not TURKISH.search(text.replace("manti", "")),
+        "no_turkish": not (TURKISH_CHARS.search(PLACES.sub("", text)) or TURKISH_WORDS.search(text)),
         "no_ai_tells": not AI_TELLS.search(text),
     }
     if case.get("recast"):
@@ -125,7 +132,7 @@ def _result(parts, ttft, t0, final, thinking_chars):
 
 
 def run_model(model: str, cases: list[dict], runs: int) -> list[dict]:
-    sysmsg = system_prompt()
+    sysmsg = system_prompt(scenario=BENCH_SCENARIO)
     out_dir = ROOT / "bench" / "results"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{model.replace(':', '_').replace('/', '_')}__{PROMPT_VERSION}.jsonl"
@@ -164,6 +171,16 @@ def run_model(model: str, cases: list[dict], runs: int) -> list[dict]:
     return rows
 
 
+def rescore(model: str, cases: list[dict]) -> list[dict]:
+    path = ROOT / "bench" / "results" / f"{model.replace(':', '_').replace('/', '_')}__{PROMPT_VERSION}.jsonl"
+    by_id = {c["id"]: c for c in cases}
+    rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    for r in rows:
+        r["checks"] = score(by_id[r["id"]], r["reply"])
+    path.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n")
+    return rows
+
+
 def summarize(model: str, rows: list[dict]) -> dict:
     checks = [c for r in rows for c in r["checks"].values()]
     per = {}
@@ -180,6 +197,7 @@ def summarize(model: str, rows: list[dict]) -> dict:
         "vram_mib": rows[0]["vram_mib"],
         "gpu_%": rows[0]["gpu_share"],
         "thinking_leak": sum(1 for r in rows if r["thinking_chars"]),
+        "oh_so_%": round(100 * sum(r["reply"].strip().lower().startswith("oh, so") for r in rows) / len(rows)),
         **{k: round(100 * sum(v) / len(v)) for k, v in per.items()},
     }
 
@@ -188,9 +206,11 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("models", nargs="+")
     ap.add_argument("--runs", type=int, default=1)
+    ap.add_argument("--rescore", action="store_true", help="re-score saved replies instead of calling the model")
     args = ap.parse_args()
     cases = yaml.safe_load((ROOT / "bench" / "cases.yaml").read_text())
-    summaries = [summarize(m, run_model(m, cases, args.runs)) for m in args.models]
+    summaries = [summarize(m, rescore(m, cases) if args.rescore else run_model(m, cases, args.runs))
+                 for m in args.models]
     print(f"\nprompt {PROMPT_VERSION}, {len(cases)} cases x {args.runs} run(s)")
     keys = list(summaries[0].keys())
     for s in summaries:

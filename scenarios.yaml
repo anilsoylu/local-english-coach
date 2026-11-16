@@ -1,0 +1,110 @@
+# id: stable key. title: shown in UI (Turkish). role/setting: given to the model.
+# opening: first line the coach says. chunks: phrases seeded into spaced repetition when this scenario is used.
+
+- id: smalltalk
+  title: Sohbet (hafta sonu, yemek, planlar)
+  role: a friendly coworker from another country, chatting before a meeting
+  setting: Casual small talk about the weekend, food, hobbies and plans.
+  opening: "Hey Anil! How was your weekend?"
+  chunks:
+    - phrase: "To be honest, ..."
+      meaning: "Açıkçası, ..."
+    - phrase: "I've been meaning to ..."
+      meaning: "Bir süredir ... yapmayı düşünüyorum"
+    - phrase: "It was nothing special, just ..."
+      meaning: "Özel bir şey yoktu, sadece ..."
+
+- id: upwork-discovery
+  title: Upwork müşteri görüşmesi (ihtiyacı anlama)
+  role: a US startup founder on a first video call with a freelancer they found on Upwork. You need a booking app. Ask about experience, approach and timeline, one thing at a time.
+  setting: First client call. Anil should ask good questions and explain how he would work.
+  opening: "Hi Anil, thanks for jumping on the call. So, I saw your profile. Can you tell me a bit about yourself?"
+  chunks:
+    - phrase: "Could you walk me through ...?"
+      meaning: "Bana ... adım adım anlatır mısın?"
+    - phrase: "Just to make sure I understand, ..."
+      meaning: "Doğru anladığımdan emin olmak için, ..."
+    - phrase: "What does success look like for you?"
+      meaning: "Senin için başarı neye benziyor?"
+    - phrase: "I've worked on something similar before."
+      meaning: "Daha önce benzer bir şey üzerinde çalıştım."
+
+- id: upwork-price
+  title: Fiyat ve süre konuşma
+  role: a small business owner who likes Anil's work but thinks the price is a bit high. Push back politely once or twice.
+  setting: Negotiating price, scope and deadline for a web project.
+  opening: "Okay, I looked at your proposal. Honestly, the price is a bit more than I expected. Can you explain how you got to that number?"
+  chunks:
+    - phrase: "The thing is, ..."
+      meaning: "Mesele şu ki, ..."
+    - phrase: "If we reduce the scope, ..."
+      meaning: "Kapsamı daraltırsak, ..."
+    - phrase: "I can be flexible on ..."
+      meaning: "... konusunda esnek olabilirim"
+    - phrase: "Let me get back to you on that."
+      meaning: "Bu konuda sana dönerim."
+
+- id: upwork-delay
+  title: Gecikme ve sorun bildirme
+  role: a client waiting for a feature. You are a little worried about the deadline but friendly.
+  setting: Anil has to explain a delay or a technical problem and propose a new plan.
+  opening: "Hi Anil, quick check-in. Are we still on track for Friday's demo?"
+  chunks:
+    - phrase: "I wanted to give you a heads-up about ..."
+      meaning: "... hakkında önceden haber vermek istedim"
+    - phrase: "We ran into an issue with ..."
+      meaning: "... ile ilgili bir sorunla karşılaştık"
+    - phrase: "I'll keep you posted."
+      meaning: "Seni gelişmelerden haberdar ederim."
+
+- id: standup
+  title: Günlük toplantı (stand-up)
+  role: a team lead running a short daily stand-up in a remote dev team
+  setting: Anil says what he did yesterday, what he will do today, and any blockers.
+  opening: "Morning! Let's start with you, Anil. What did you work on yesterday?"
+  chunks:
+    - phrase: "I'm currently working on ..."
+      meaning: "Şu anda ... üzerinde çalışıyorum"
+    - phrase: "I'm blocked on ..."
+      meaning: "... yüzünden ilerleyemiyorum"
+    - phrase: "It should be done by ..."
+      meaning: "... kadar bitmiş olmalı"
+
+- id: interview
+  title: İş görüşmesi
+  role: a friendly hiring manager at a European software company interviewing Anil for a remote React Native role
+  setting: Job interview. Questions about experience, projects, strengths, and why this job.
+  opening: "Hi Anil, nice to meet you. To start, could you tell me a little about yourself and your background?"
+  chunks:
+    - phrase: "One project I'm proud of is ..."
+      meaning: "Gurur duyduğum projelerden biri ..."
+    - phrase: "I'm comfortable with ..."
+      meaning: "... konusunda rahatım"
+    - phrase: "That's a good point."
+      meaning: "Bu iyi bir nokta."
+
+- id: project-explain
+  title: Projeni anlat
+  role: a curious developer friend at a meetup who wants to hear about a project Anil built
+  setting: "Anil explains one of his real projects: what it does, the tech, what was hard."
+  opening: "So what are you building these days?"
+  chunks:
+    - phrase: "Basically, it lets you ..."
+      meaning: "Temelde ... yapmanı sağlıyor"
+    - phrase: "The tricky part was ..."
+      meaning: "Zor kısmı ... idi"
+    - phrase: "If I did it again, I would ..."
+      meaning: "Tekrar yapsam ... yapardım"
+
+- id: travel
+  title: Seyahat (havalimanı, otel, restoran)
+  role: a hotel receptionist, then a waiter, depending on where the conversation goes
+  setting: Checking in at a hotel abroad, asking for things, ordering food.
+  opening: "Good evening, welcome! Do you have a reservation with us?"
+  chunks:
+    - phrase: "I was wondering if you could ..."
+      meaning: "Acaba ... yapabilir misiniz diye merak ediyordum"
+    - phrase: "Could I get ...?"
+      meaning: "... alabilir miyim?"
+    - phrase: "Is it possible to ...?"
+      meaning: "... mümkün mü?"

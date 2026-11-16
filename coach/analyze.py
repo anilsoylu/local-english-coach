@@ -108,6 +108,38 @@ def call_model(prompt: str) -> dict:
     return json.loads(r.json()["message"]["content"])
 
 
+def _norm(s: str) -> str:
+    return " ".join("".join(ch if ch.isalnum() or ch in " '" else " " for ch in s.lower().replace("’", "'")).split())
+
+
+def clean_report(rep: dict, turns: list[dict], known: list[str]) -> None:
+    """The model doesn't reliably follow the prompt, so enforce the rules in code:
+    quotes must come from normal English USER turns (not help/Turkish, not the coach),
+    no duplicates, and no 'new' chunks the learner already practices."""
+    eligible = [_norm(t["content"]) for t in turns
+                if t["role"] == "user" and not t["is_help"] and t["lang"] == "en"]
+
+    def from_user(quote: str) -> bool:
+        q = _norm(quote)
+        return bool(q) and any(q in u for u in eligible)
+
+    def dedupe(items: list[dict], key: str) -> list[dict]:
+        seen, out = set(), []
+        for it in items:
+            k = _norm(it.get(key, ""))
+            if k not in seen:
+                seen.add(k)
+                out.append(it)
+        return out
+
+    rep["errors"] = dedupe([e for e in rep.get("errors", []) if from_user(e["original"])], "original")
+    rep["natural"] = dedupe([n for n in rep.get("natural", []) if from_user(n["original"])
+                             and _norm(n["natural"]) != _norm(n["original"])], "original")
+    known_n = {_norm(k).rstrip(" .") for k in known}
+    rep["chunks"] = dedupe([c for c in rep.get("chunks", []) if _norm(c["phrase"]).rstrip(" .") not in known_n],
+                           "phrase")
+
+
 def analyze_session(sid: int) -> None:
     with _lock:
         try:
@@ -165,9 +197,7 @@ def _analyze(sid: int) -> None:
                                    recurring=", ".join(prof["recurring_errors"]) or "none yet",
                                    known="; ".join(known) or "none",
                                    transcript=transcript))
-    # Drop errors whose "original" isn't in the transcript: the model must not invent quotes.
-    blob = " ".join(user_texts).lower()
-    rep["errors"] = [e for e in rep.get("errors", []) if e["original"].lower().strip(" .") in blob]
+    clean_report(rep, turns, known)
 
     with db:
         for e in rep["errors"]:

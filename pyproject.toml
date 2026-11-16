@@ -1,0 +1,19 @@
+[project]
+name = "english-coach"
+version = "0.1.0"
+description = "Local voice English speaking coach (Pipecat + Ollama + Whisper + Kokoro)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "httpx>=0.27",
+    "pyyaml>=6",
+]
+
+[project.optional-dependencies]
+voice = [
+    "pipecat-ai[webrtc,runner,whisper,kokoro]==1.16.0",
+    "nvidia-cublas-cu12",
+    "nvidia-cudnn-cu12==9.*",
+]
+
+[tool.uv]
+package = false

@@ -1,0 +1,184 @@
+# Fixed learner turns for comparing models and prompt versions.
+# kind: normal | turkish | help | unfinished
+# recast: the reply should contain at least one of these (case-insensitive) to count as a recast.
+# Each case has the coach's previous line as context.
+
+- id: past-simple-1
+  kind: normal
+  prev: How was your weekend?
+  user: I go to my friend house and we eating dinner.
+  recast: ["went", "friend's"]
+
+- id: past-simple-2
+  kind: normal
+  prev: What did you do yesterday after work?
+  user: Yesterday I am working until late, after I watch a film.
+  recast: ["worked", "were working", "watched"]
+
+- id: possessive
+  kind: normal
+  prev: Who did you meet last week?
+  user: I meet my brother wife, she is very nice.
+  recast: ["brother's wife", "met"]
+
+- id: article
+  kind: normal
+  prev: Where do you usually work?
+  user: I work from home, I have small office in my apartment.
+  recast: ["a small office"]
+
+- id: third-person
+  kind: normal
+  prev: Tell me about your last client.
+  user: My client want a mobile app, he need it in two months.
+  recast: ["wants", "needs"]
+
+- id: present-perfect
+  kind: normal
+  prev: Have you ever worked with a big company?
+  user: Yes I am working with a bank before, three years ago.
+  recast: ["worked", "have worked"]
+
+- id: plural
+  kind: normal
+  prev: What do you build for clients?
+  user: I make many website and two mobile application this year.
+  recast: ["websites", "applications", "apps"]
+
+- id: word-order
+  kind: normal
+  prev: What do you like about freelancing?
+  user: I like very much freelancing because flexible is time.
+  recast: ["really like", "like freelancing", "flexible"]
+
+- id: preposition
+  kind: normal
+  prev: When did you start freelancing?
+  user: I started freelance at 2024, before I was in a company.
+  recast: ["in 2024"]
+
+- id: future
+  kind: normal
+  prev: What are your plans for next month?
+  user: Next month I will to go Istanbul for a meeting with client.
+  recast: ["go to istanbul", "going to istanbul", "a client"]
+
+- id: correct-sentence
+  kind: normal
+  prev: What did you have for breakfast?
+  user: I had eggs and some cheese with tea.
+  recast: []
+
+- id: short-answer
+  kind: normal
+  prev: Do you like your job?
+  user: Yes.
+  recast: []
+
+- id: upwork-scope
+  kind: normal
+  prev: "So, can you tell me a bit about how you'd build this booking app?"
+  user: I will make with Next.js and Supabase, first I make design, after backend.
+  recast: ["i'd build", "would build", "first", "then"]
+
+- id: upwork-price
+  kind: normal
+  prev: "What would this cost me, roughly?"
+  user: For this project I think 2000 dollar, maybe little more if you want admin panel.
+  recast: ["2,000 dollars", "2000 dollars", "a little more"]
+
+- id: upwork-delay
+  kind: normal
+  prev: "Hi Anil, is the app ready for the demo on Friday?"
+  user: Sorry, it is not ready, I need two more day because API is problem.
+  recast: ["two more days", "a problem", "an issue"]
+
+- id: standup
+  kind: normal
+  prev: What did you work on yesterday?
+  user: Yesterday I fix the login bug and I am start the payment page.
+  recast: ["fixed", "started"]
+
+- id: interview-intro
+  kind: normal
+  prev: Can you tell me a little about yourself?
+  user: I am developer since five years, I am living in Izmir.
+  recast: ["for five years", "have been", "i live", "i've been"]
+
+- id: opinion
+  kind: normal
+  prev: Do you prefer working alone or in a team?
+  user: I prefer alone because I can focus more, but sometimes team is good for learn.
+  recast: ["to learn", "for learning", "a team"]
+
+- id: travel
+  kind: normal
+  prev: Where did you go on your last holiday?
+  user: I gone to Bodrum with my family, the sea was very beautiful.
+  recast: ["went"]
+
+- id: restaurant
+  kind: normal
+  prev: Good evening, are you ready to order?
+  user: Yes, I want a pizza and one cola please, no ice.
+  recast: []
+
+- id: turkish-1
+  kind: turkish
+  prev: What did you cook last weekend?
+  user: Mantı yaptık, annem de geldi.
+  recast: ["manti", "made", "mom", "mother"]
+
+- id: turkish-2
+  kind: turkish
+  prev: Why did you choose freelancing?
+  user: Şey, ofiste çalışmak beni çok yoruyordu.
+  recast: ["tired", "office"]
+
+- id: turkish-mixed
+  kind: turkish
+  prev: How did the client meeting go?
+  user: It was good but müşteri çok fazla revizyon istedi.
+  recast: ["revision", "changes"]
+
+- id: turkish-word
+  kind: turkish
+  prev: What's the hardest part of your job?
+  user: The hardest part is, nasıl denir, teslim tarihi.
+  recast: ["deadline"]
+
+- id: help-1
+  kind: help
+  prev: "How would you tell a client that you need more time?"
+  user: Help.
+  recast: []
+
+- id: help-2
+  kind: help
+  prev: "How would you ask your client for feedback politely?"
+  user: Hmm, I want to... help please.
+  recast: []
+
+- id: unfinished-1
+  kind: unfinished
+  prev: Why do you want to work with international clients?
+  user: Because the money is better and also I...
+  recast: []
+
+- id: unfinished-2
+  kind: unfinished
+  prev: "What would you do if a client doesn't pay?"
+  user: I would, uh, I would... um...
+  recast: []
+
+- id: long-ramble
+  kind: normal
+  prev: What's your typical day like?
+  user: In morning I wake up at eight, I drink coffee, after I check email and Upwork, then I am coding until evening, sometimes I go gym.
+  recast: ["in the morning", "go to the gym", "i code", "then"]
+
+- id: question-back
+  kind: normal
+  prev: Do you have any questions for me?
+  user: Yes, where are you from and what you do in weekend?
+  recast: ["what do you do", "on the weekend", "at the weekend", "on weekends"]

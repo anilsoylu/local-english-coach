@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import sqlite3
 from datetime import date, datetime, timedelta
-from pathlib import Path
 
-DB_PATH = Path(os.environ.get("COACH_DB", Path(__file__).resolve().parent.parent / "data" / "coach.db"))
+from coach.config import DB_PATH
 
 # Leitner box -> days until next review
 BOX_DAYS = {1: 1, 2: 2, 3: 4, 4: 8, 5: 16, 6: 32}
@@ -83,6 +81,9 @@ def connect() -> sqlite3.Connection:
     db = sqlite3.connect(DB_PATH)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA journal_mode=WAL")
+    # Safe with WAL: no corruption, at worst the last commit is lost on power failure.
+    # https://www.sqlite.org/pragma.html#pragma_synchronous
+    db.execute("PRAGMA synchronous=NORMAL")
     db.execute("PRAGMA foreign_keys=ON")
     db.executescript(SCHEMA)
     return db
@@ -93,13 +94,16 @@ def now() -> str:
 
 
 def detect_lang(text: str) -> str:
+    """en / mixed / tr. Capitalized words with Turkish letters (Çeşme, İzmir) are names, not Turkish.
+    The first word of a sentence is capitalized too, so it only counts if another word is Turkish."""
     words = re.findall(r"\w+", text)
     if not words:
         return "en"
-    tr = len(TURKISH_WORDS.findall(text)) + (2 if TURKISH_CHARS.search(text) else 0)
-    if tr == 0:
+    tr = [w for w in words if TURKISH_WORDS.fullmatch(w) or (TURKISH_CHARS.search(w) and not w[0].isupper())]
+    if not tr:
         return "en"
-    return "tr" if tr >= len(words) * 0.5 else "mixed"
+    capital_tr = [w for w in words if TURKISH_CHARS.search(w) and w[0].isupper()]
+    return "tr" if len(tr) + len(capital_tr) >= len(words) * 0.5 else "mixed"
 
 
 def is_help(text: str) -> bool:
@@ -107,14 +111,19 @@ def is_help(text: str) -> bool:
 
 
 def get_profile(db: sqlite3.Connection, user_id: str, defaults: dict) -> dict:
+    """name/about always follow config.yaml; level, recurring errors and summary are learned."""
     row = db.execute("SELECT * FROM profile WHERE user_id=?", (user_id,)).fetchone()
     if row is None:
         db.execute(
             "INSERT INTO profile(user_id, name, level, about) VALUES (?,?,?,?)",
-            (user_id, defaults["name"], defaults["level"], defaults["about"]),
+            (user_id, defaults.get("name", ""), defaults.get("level", "A2"), defaults.get("about", "")),
         )
         db.commit()
-        row = db.execute("SELECT * FROM profile WHERE user_id=?", (user_id,)).fetchone()
+    elif "name" in defaults and (row["name"], row["about"]) != (defaults["name"], defaults["about"]):
+        db.execute("UPDATE profile SET name=?, about=? WHERE user_id=?",
+                   (defaults["name"], defaults["about"], user_id))
+        db.commit()
+    row = db.execute("SELECT * FROM profile WHERE user_id=?", (user_id,)).fetchone()
     p = dict(row)
     p["recurring_errors"] = json.loads(p["recurring_errors"])
     return p
@@ -148,19 +157,32 @@ def review_chunk(db: sqlite3.Connection, chunk_id: int, used: bool) -> None:
     )
 
 
+def normalize(text: str) -> str:
+    """Lowercase, punctuation to spaces, single spaces. Apostrophes stay so "I'll" != "ill"."""
+    return " ".join(re.sub(r"[^\w\s']", " ", text.lower().replace("’", "'")).split())
+
+
+# A fragment ending in one of these before a "..." slot matches without it:
+# "a heads-up about ..." is used in "I wanted to give you a heads-up, the API is down".
+SLOT_WORDS = {"about", "with", "on", "to", "for", "of", "in", "that", "if"}
+
+
 def phrase_used(phrase: str, user_texts: list[str]) -> bool:
     """Each fragment of the phrase (split on '...') must appear in order in one user turn."""
-    def norm(s: str) -> str:
-        return " ".join(re.sub(r"[^\w\s']", " ", s.lower().replace("’", "'")).split())
-
-    frags = [norm(f) for f in re.split(r"\.\.\.|…", phrase) if norm(f)]
-    for t in map(norm, user_texts):
+    patterns = []
+    for frag in filter(None, map(normalize, re.split(r"\.\.\.|…", phrase))):
+        *head, last = frag.split()
+        if head and last in SLOT_WORDS:
+            patterns.append(rf"\b{re.escape(' '.join(head))}(?: {last})?\b")
+        else:
+            patterns.append(rf"\b{re.escape(frag)}\b")
+    for text in map(normalize, user_texts):
         pos = 0
-        for f in frags:
-            m = re.search(rf"\b{re.escape(f)}\b", t[pos:])
+        for pattern in patterns:
+            m = re.search(pattern, text[pos:])
             if not m:
                 break
             pos += m.end()
         else:
-            return bool(frags)
+            return bool(patterns)
     return False

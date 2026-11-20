@@ -89,7 +89,7 @@
 
 - id: upwork-delay
   kind: normal
-  prev: "Hi Anil, is the app ready for the demo on Friday?"
+  prev: "Hi Deniz, is the app ready for the demo on Friday?"
   user: Sorry, it is not ready, I need two more day because API is problem.
   recast: ["two more days", "a problem", "an issue"]
 
@@ -102,7 +102,7 @@
 - id: interview-intro
   kind: normal
   prev: Can you tell me a little about yourself?
-  user: I am developer since five years, I am living in Izmir.
+  user: I am developer since five years, I am living in Ankara.
   recast: ["for five years", "have been", "i live", "i've been"]
 
 - id: opinion

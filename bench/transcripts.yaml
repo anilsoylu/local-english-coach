@@ -1,0 +1,40 @@
+# Fixed sessions for comparing analysis models (bench/analysis.py).
+# Each turn: [role, text]; user turns may add a third item: help | tr
+- id: delay
+  turns:
+    - [coach, "Hi Deniz, quick check-in. Are we still on track for Friday's demo?"]
+    - [user, "Sorry, the demo is not ready, we have problem with payment API."]
+    - [coach, "So the demo isn't ready because of a problem with the payment API. What kind of problem is it?"]
+    - [user, "The API give error when user pay with card, I am searching the reason since two days."]
+    - [coach, "Ah, the API gives an error when users pay by card, and you've been looking for the reason for two days. Do you have a new date in mind?"]
+    - [user, "I think I need two more day, maybe Monday is ok?"]
+    - [coach, "So you need two more days, and Monday could work. How will you tell the client?"]
+    - [user, "I think I need... help.", help]
+    - [coach, "Try starting with: I wanted to give you a heads-up about..."]
+    - [user, "Müşteriye nasıl söylerim bilmiyorum.", tr]
+    - [coach, "I'm not sure how to tell the client. Try saying that."]
+    - [user, "I wanted to give you a heads-up, the payment is not working, I will fix until Monday."]
+- id: weekend
+  turns:
+    - [coach, "Hey Deniz! How was your weekend?"]
+    - [user, "It was good, I go to Çeşme with my friends on Saturday."]
+    - [coach, "Oh, you went to Cesme with your friends on Saturday. What did you do there?"]
+    - [user, "We swimmed in sea and we eat fish in a restaurant near the beach. The fish was very delicious but expensive a little."]
+    - [coach, "You swam in the sea and ate fish near the beach. It was delicious but a little expensive. How much did it cost?"]
+    - [user, "Around 1500 lira for one person, I think it is too much for fish."]
+    - [coach, "That is a lot. Do you go there often?"]
+    - [user, "No, only one time in a year because it is far and the traffic is very bad in summer."]
+    - [coach, "Right, only once a year because of the traffic. What do you usually do on Sundays?"]
+    - [user, "Sunday I am resting at home, I watch series and sometimes I am coding my side project."]
+- id: interview
+  turns:
+    - [coach, "Hi Deniz, nice to meet you. To start, could you tell me a little about yourself?"]
+    - [user, "I am developer since five years. I am working with React Native and Next.js mostly."]
+    - [coach, "So you've been a developer for five years, mostly with React Native and Next.js. What's a project you're proud of?"]
+    - [user, "I made a recipe app for home cooks, it has more than ten thousand user now."]
+    - [coach, "You built a recipe app that now has more than ten thousand users. What was the hardest part?"]
+    - [user, "The hardest part was the offline mode, because users cook without internet and app must be fast."]
+    - [coach, "An offline mode that stays fast sounds hard. How did you solve it?"]
+    - [user, "We used SQLite and also we cached the datas in the phone, so user don't wait."]
+    - [coach, "So you used SQLite and cached the data on the phone so users don't wait. Why do you want to work with us?"]
+    - [user, "Because your company is working with international clients and I want improve myself in a big team."]

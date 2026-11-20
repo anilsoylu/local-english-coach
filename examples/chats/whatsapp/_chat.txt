@@ -1,0 +1,8 @@
+[01.01.26, 10:00:00] Friend Example: ‎Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them.
+[01.01.26, 10:01:12] Friend Example: Hey, are you free this weekend?
+[01.01.26, 10:03:40] Deniz Example: Yes I am free, we can meet in Saturday.
+[01.01.26, 10:04:02] Deniz Example: I am thinking about the new cafe near to my home
+and they have very good coffee.
+[01.01.26, 10:05:10] Friend Example: ‎image omitted
+[01.01.26, 10:05:30] Friend Example: Perfect, see you there!
+[01.01.26, 10:06:00] Deniz Example: Tamam görüşürüz

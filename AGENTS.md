@@ -38,7 +38,7 @@ On the GPU machine, after `setup.sh`:
 ```sh
 docker compose --profile test run --rm test                          # API: session, chat, help, Turkish turn, report
 docker compose --profile test run --rm test python tests/ui-test.py  # headless Chromium, phone + desktop
-docker compose --profile test run --rm test python tests/instagram-test.py  # import on the made-up export
+docker compose --profile test run --rm test python tests/chats-test.py  # chat import on the made-up exports
 ```
 
 The test image is the app image plus tests, bench and headless Chromium. Each test starts its own server on a temporary database inside the container. Look at the screenshots in `tests/screenshots/`: the JSON output only catches console errors and overflow, not a broken layout.
@@ -81,12 +81,12 @@ coach/prompts.py    system prompt (PROMPT_VERSION), spoken-style rules
 coach/analyze.py    end-of-session analysis (JSON schema) and the code-side clean-up of its output
 coach/memory.py     SQLite schema, Turkish/help detection, Leitner spaced repetition
 coach/config.py     config.yaml + env vars (COACH_MODEL, COACH_ANALYSIS_MODEL, COACH_DB, COACH_USER, COACH_HOST, COACH_PORT)
-coach/instagram.py  import of an Instagram messages export from data/personal/ (local models only, prints counts only)
+coach/chats.py      chat export import (Instagram/Messenger, WhatsApp, Telegram, plain text) from data/personal/chats/; local models only, prints ids and counts only
 web/index.html      the whole UI, no build step
 web/static/         manifest and icons for "Add to Dock" / home screen
 scenarios.yaml      roles, openings and seed phrases; {name} is the learner's name
 bench/              chat bench (cases.yaml) and analysis bench (transcripts.yaml)
-examples/           made-up personal-data formats (Instagram export, friend persona); tests use them
+examples/           made-up personal-data formats (chat exports, friend persona); tests use them
 tests/              smoke and UI tests
 deploy/             Ollama override, backup script
 ```

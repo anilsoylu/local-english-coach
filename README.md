@@ -53,13 +53,19 @@ Scenarios live in `scenarios.yaml`: the coach's role, the situation, its opening
 
 ## Learn from your real chats
 
-If you chat in English with someone on Instagram (and they're fine with it), the coach can learn from those chats. Everything runs on the local models, and the messages never leave the machine.
+If you chat in English with someone (and they're fine with it), the coach can learn from those chats. Everything runs on the local models, and the messages never leave the machine.
 
-1. In Instagram, open Accounts Center > Your information and permissions > Export your information. Pick Messages only, All time, JSON.
-2. Unzip the export into `data/personal/instagram/` (gitignored). `examples/instagram-export/` shows the layout with made-up messages.
-3. Run `docker compose exec coach python -m coach.instagram threads` to list conversations by id and message count, then `docker compose exec coach python -m coach.instagram import <id>`.
+1. Export the chat from the app and put it anywhere under `data/personal/chats/` (gitignored):
+   - Instagram or Facebook Messenger: Accounts Center > Your information and permissions > Export your information. Pick Messages only, All time, JSON, then unzip it.
+   - WhatsApp: open the chat > More > Export chat > Without media. You get `_chat.txt` (iPhone and Android layouts both work).
+   - Telegram Desktop: Settings > Advanced > Export Telegram data, or Export chat history on one chat, in JSON format.
+   - Anything else: a `.txt` with one `Name: message` per line.
 
-Your own English messages go through the analysis model. Mistakes you repeat go into your profile, and phrases you were missing go into spaced repetition, due right away. The other person's messages become a short note on how they chat (tone, humor, favorite topics), with no names or identifying details. The "Arkadaş sohbeti" scenario uses that note (format: `examples/friend-persona.example.json`). The coach copies the manner, not their English mistakes. Without the folder, none of this runs.
+   `examples/chats/` has each format with made-up messages.
+2. `docker compose exec coach python -m coach.chats threads` lists every conversation by id, format and message count. Names aren't shown because folder and file names contain them.
+3. `docker compose exec coach python -m coach.chats import <id>`. Add `--me "Your Name"` if it can't tell which participant you are. Detection works when you appear in more conversations than anyone else.
+
+Your own English messages, an even sample of up to 1200, go through the analysis model. Mistakes you repeat go into your profile, and phrases you were missing go into spaced repetition, due right away. The other person's messages become a short note on how they chat (tone, humor, favorite topics), with no names or identifying details. The "Arkadaş sohbeti" scenario uses that note (format: `examples/friend-persona.example.json`). The coach copies the manner, not their English mistakes. Without the folder, none of this runs.
 
 ## How the models were chosen
 
@@ -104,7 +110,7 @@ Tests run in their own container with a temporary database, so they never touch 
 ```sh
 docker compose --profile test run --rm test                          # API: session, chat, help, report
 docker compose --profile test run --rm test python tests/ui-test.py  # headless browser, phone and desktop
-docker compose --profile test run --rm test python tests/instagram-test.py  # import on the made-up export
+docker compose --profile test run --rm test python tests/chats-test.py  # chat import on the made-up exports
 docker compose --profile test run --rm test python bench/run.py gemma4:e4b
 docker compose --profile test run --rm test python bench/analysis.py gemma4:26b-a4b
 ```

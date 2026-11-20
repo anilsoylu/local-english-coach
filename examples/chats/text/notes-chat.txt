@@ -1,0 +1,3 @@
+Friend Example: What did you cook last night?
+Deniz Example: I cooked pasta, but I forget the salt so it was not good.
+Friend Example: Haha, it happens

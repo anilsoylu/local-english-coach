@@ -69,6 +69,8 @@ def main() -> int:
         c.post(f"/api/session/{sid}/end")
         if not c.get(f"/api/session/{sid}").json()["ended"]:
             failures.append("session not marked ended")
+        if c.get("/").headers.get("cache-control") != "no-cache":
+            failures.append("index.html can be served stale from the browser cache")
         if c.post("/api/warm").json() != {"ok": True}:
             failures.append("warm endpoint failed")
         mf = c.get("/static/manifest.webmanifest")

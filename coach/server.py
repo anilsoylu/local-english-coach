@@ -77,7 +77,9 @@ class MessageBody(BaseModel):
 
 @app.get("/")
 def index() -> FileResponse:
-    return FileResponse(ROOT / "web" / "index.html")
+    # Revalidate every time (a cheap 304 via ETag): without it browsers and Safari's Dock apps keep showing the
+    # page from before a deploy. https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control#no-cache
+    return FileResponse(ROOT / "web" / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 @app.post("/api/warm")

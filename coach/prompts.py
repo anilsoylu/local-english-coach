@@ -1,5 +1,6 @@
 """System prompts for the conversation model. Bump PROMPT_VERSION on every change so bench results stay comparable."""
 
+import json
 import re
 
 from coach import config
@@ -43,6 +44,7 @@ When {name} is stuck:
 {about}Today's scenario: {scenario}{extras}"""
 
 ROLE = "In this conversation you play {role}. Stay in that role, but keep the rules above. {setting}"
+PERSONA = " Chat the way this friend does: {style} Topics they like: {topics}. Your own English stays correct."
 
 CHUNKS = """
 
@@ -75,8 +77,18 @@ def system_prompt(
                        speak=SPEAK_LIKE_A_PERSON, extras=extras)
 
 
+def persona_text() -> str:
+    """Style note written by `python -m coach.instagram import`; empty when there is none."""
+    try:
+        p = json.loads(config.PERSONA_PATH.read_text())
+    except (OSError, ValueError):
+        return ""
+    return PERSONA.format(style=p["style"].strip(), topics=", ".join(p.get("topics", [])) or "everyday life")
+
+
 def scenario_text(sc: dict, name: str = config.LEARNER_NAME) -> str:
-    return ROLE.format(role=sc["role"], setting=sc["setting"]).replace("{name}", name or "the learner")
+    text = ROLE.format(role=sc["role"], setting=sc["setting"]) + (persona_text() if sc.get("persona") else "")
+    return text.replace("{name}", name or "the learner")
 
 
 def opening(sc: dict, name: str = config.LEARNER_NAME) -> str:

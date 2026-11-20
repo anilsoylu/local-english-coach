@@ -6,6 +6,9 @@
 <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#151618" media="(prefers-color-scheme: dark)">
 <title>English Coach</title>
+<link rel="manifest" href="static/manifest.webmanifest">
+<link rel="apple-touch-icon" href="static/icon-180.png">
+<link rel="icon" href="static/icon-180.png">
 <style>
   :root {
     --bg: #f6f5f2; --surface: #ffffff; --text: #1d1e20; --muted: #6b6e73; --line: #e3e1dc;
@@ -118,9 +121,11 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const log = $("log"), input = $("input");
+const ERROR_MARK = "\n[error: "; // coach/server.py ERROR_MARK
 let sid = null, busy = false, readyAt = null, tick = null;
 
-function store(key, val) { try { val === undefined ? null : localStorage.setItem(key, val); return localStorage.getItem(key); } catch { return null; } }
+// undefined reads, null removes, anything else writes. Storage can throw (private mode), so it is never required.
+function store(key, val) { try { val === null ? localStorage.removeItem(key) : val !== undefined && localStorage.setItem(key, val); return localStorage.getItem(key); } catch { return null; } }
 
 function add(cls, text) {
   $("empty")?.remove();
@@ -168,17 +173,34 @@ async function start() {
   const r = await fetch("api/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario: $("scenario").value }) });
   if (!r.ok) { add("coach", "Seans başlatılamadı."); $("start").disabled = false; return; }
   const data = await r.json();
-  sid = data.session_id;
   if (data.warmup.length) {
     card("Bugün kullanmayı dene", `<ul class="warm">${data.warmup.map((c) => `<li><b>${esc(c.phrase)}</b> <span class="tr">${esc(c.meaning)}</span></li>`).join("")}</ul>`);
   }
   add("coach", data.opening);
+  enterChat(data.session_id);
+}
+
+function enterChat(id) {
+  sid = id;
+  store("sid", String(id));
   $("start").classList.add("hidden");
   $("scenario").disabled = true;
   $("end").classList.remove("hidden");
   $("composer").classList.remove("hidden");
   input.focus();
   startTimer();
+}
+
+// A reload or a laptop waking from sleep picks the session up where it was.
+async function resume() {
+  const id = store("sid");
+  if (!id) return;
+  const r = await fetch(`api/session/${id}`);
+  if (!r.ok) { store("sid", null); return; }
+  const s = await r.json();
+  $("scenario").value = s.scenario;
+  for (const t of s.turns) add(t.role === "user" ? "me" + (t.is_help ? " help" : "") : "coach", t.content);
+  if (s.ended) { store("sid", null); showReport(Number(id)); } else enterChat(Number(id));
 }
 
 async function send(text, isHelp = false) {
@@ -203,8 +225,12 @@ async function send(text, isHelp = false) {
       out.textContent += dec.decode(value, { stream: true });
       out.scrollIntoView({ block: "end" });
     }
+    if (out.textContent.includes(ERROR_MARK)) throw new Error("model");
   } catch (e) {
-    out.textContent = "Bağlantı hatası, tekrar dene.";
+    // The server dropped this turn, so put the text back for a retry.
+    out.previousElementSibling?.remove();
+    out.textContent = "Bağlantı hatası, mesajın kutuda. Tekrar gönder.";
+    input.value = text; autosize();
   }
   out.classList.remove("typing");
   busy = false; $("send").disabled = false; $("help").disabled = false;
@@ -218,16 +244,20 @@ async function end() {
   $("composer").classList.add("hidden");
   clearInterval(tick);
   await fetch(`api/session/${sid}/end`, { method: "POST" });
+  const id = sid;
+  sid = null; store("sid", null);
+  $("end").classList.add("hidden"); $("end").disabled = false;
+  await showReport(id);
+}
+
+async function showReport(id) {
   const wait = card("Seans raporu", `<p class="note">Analiz ediliyor, bu birkaç dakika sürebilir…</p>`);
   wait.scrollIntoView({ block: "end", behavior: "smooth" });
-  const id = sid;
   for (let i = 0; i < 120; i++) {
-    await new Promise((res) => setTimeout(res, 3000));
     const rep = await (await fetch(`api/session/${id}/report`)).json();
     if (rep.ready) { renderReport(wait, rep); break; }
+    await new Promise((res) => setTimeout(res, 3000));
   }
-  sid = null;
-  $("end").classList.add("hidden"); $("end").disabled = false;
   $("start").classList.remove("hidden"); $("start").disabled = false; $("scenario").disabled = false;
 }
 
@@ -262,7 +292,7 @@ $("start").onclick = start;
 $("end").onclick = end;
 $("timerToggle").checked = store("timer") === "1";
 $("timerToggle").onchange = (e) => { store("timer", e.target.checked ? "1" : "0"); if (e.target.checked) startTimer(); else { clearInterval(tick); $("timer").classList.add("hidden"); } };
-loadScenarios();
+loadScenarios().then(resume);
 </script>
 </body>
 </html>

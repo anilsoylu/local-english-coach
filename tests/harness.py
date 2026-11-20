@@ -15,10 +15,10 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 @contextmanager
-def test_server(port: int = 8799):
+def test_server(port: int = 8799, **env_overrides: str):
     tmp = tempfile.mkdtemp(prefix="coach-test-")
     env = {**os.environ, "COACH_DB": f"{tmp}/test.db", "COACH_USER": "test",
-           "COACH_HOST": "127.0.0.1", "COACH_PORT": str(port)}
+           "COACH_HOST": "127.0.0.1", "COACH_PORT": str(port), **env_overrides}
     proc = subprocess.Popen([sys.executable, "-m", "coach"], cwd=ROOT, env=env,
                             stdout=open(f"{tmp}/server.log", "w"), stderr=subprocess.STDOUT)
     base = f"http://127.0.0.1:{port}"

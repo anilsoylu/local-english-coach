@@ -69,6 +69,11 @@ async def run(p, name, viewport, scheme, mobile):
     timer_visible = await page.is_visible("#timer")
     await page.screenshot(path=f"{OUT}/{name}-3-chat.png", full_page=True)
 
+    before = await page.locator(".msg").count()
+    await page.reload()  # a reload or a laptop waking up must bring the session back
+    await page.wait_for_selector("#composer:not(.hidden)")
+    resumed = await page.locator(".msg").count() == before
+
     await page.click("#end")
     await page.wait_for_selector(".report", timeout=240000)
     await page.wait_for_timeout(800)
@@ -80,7 +85,7 @@ async def run(p, name, viewport, scheme, mobile):
     report_text = await page.inner_text(".report")
     await browser.close()
     return {
-        "name": name, "autocorrect_attrs": attrs, "warmup_items": warm, "timer_visible_after_reply": timer_visible,
+        "name": name, "autocorrect_attrs": attrs, "warmup_items": warm, "timer_visible_after_reply": timer_visible, "resumed_after_reload": resumed,
         "horizontal_overflow_px": overflow, "start_button_back": start_visible,
         "coach_replies": coach, "report_excerpt": report_text[:600], "problems": problems,
     }
@@ -97,7 +102,7 @@ async def main():
                 await run(p, "desktop", {"width": 1280, "height": 800}, "light", False),
             ]
     print(json.dumps(results, ensure_ascii=False, indent=2))
-    bad = [r["name"] for r in results if r["problems"] or r["horizontal_overflow_px"] > 0]
+    bad = [r["name"] for r in results if r["problems"] or r["horizontal_overflow_px"] > 0 or not r["resumed_after_reload"]]
     print("FAIL: " + ", ".join(bad) if bad else "PASS")
     sys.exit(1 if bad else 0)
 

@@ -6,6 +6,7 @@ import json
 import logging
 import statistics
 import threading
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 
 import httpx
@@ -96,10 +97,10 @@ def text_metrics(turns: list[dict]) -> dict:
     }
 
 
-def call_model(prompt: str, model: str = ANALYSIS_MODEL) -> dict:
+def call_model(prompt: str, model: str = ANALYSIS_MODEL, schema: dict = SCHEMA) -> dict:
     body = {
-        "model": model, "stream": False, "think": False, "format": SCHEMA,
-        "messages": [{"role": "user", "content": prompt + "\n\nJSON schema:\n" + json.dumps(SCHEMA)}],
+        "model": model, "stream": False, "think": False, "format": schema,
+        "messages": [{"role": "user", "content": prompt + "\n\nJSON schema:\n" + json.dumps(schema)}],
         "options": {"temperature": 0, "num_ctx": 16384},
     }
     r = httpx.post(f"{OLLAMA}/api/chat", json=body, timeout=900)
@@ -139,18 +140,27 @@ def clean_report(rep: dict, turns: list[dict], known: list[str]) -> None:
     rep["chunks"] = dedupe([c for c in rep.get("chunks", []) if not is_known(c["phrase"])], "phrase")
 
 
-def analyze_session(sid: int) -> None:
+@contextmanager
+def analysis_slot():
+    """One analysis job at a time (the GPU holds one model), then the chat model is loaded again
+    so the next session starts fast."""
     with _lock:
         try:
-            _analyze(sid)
-        except Exception:
-            log.exception("analysis failed for session %s (will retry on next start)", sid)
+            yield
         finally:
-            if ANALYSIS_MODEL != CHAT_MODEL:  # bring the chat model back so the next session starts fast
+            if ANALYSIS_MODEL != CHAT_MODEL:
                 try:
                     httpx.post(f"{OLLAMA}/api/chat", json={"model": CHAT_MODEL, "messages": []}, timeout=300)
                 except Exception:
                     pass
+
+
+def analyze_session(sid: int) -> None:
+    with analysis_slot():
+        try:
+            _analyze(sid)
+        except Exception:
+            log.exception("analysis failed for session %s (will retry on next start)", sid)
 
 
 def _analyze(sid: int) -> None:

@@ -34,6 +34,9 @@ ANALYSIS_MODEL: str = os.environ.get("COACH_ANALYSIS_MODEL", _models.get("analys
 OLLAMA_URL: str = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 USER_ID: str = os.environ.get("COACH_USER", "default")
 DB_PATH = Path(os.environ.get("COACH_DB", ROOT / "data" / "coach.db"))
+# Personal material (chat exports, the friend persona). Gitignored with the rest of data/; missing means "feature off".
+PERSONAL_DIR = Path(os.environ.get("COACH_PERSONAL", DB_PATH.parent / "personal"))
+PERSONA_PATH = PERSONAL_DIR / "friend-persona.json"
 
 HOST: str = os.environ.get("COACH_HOST", _server.get("host", "127.0.0.1"))
 PORT: int = int(os.environ.get("COACH_PORT", _server.get("port", 8765)))

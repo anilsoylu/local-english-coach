@@ -1,0 +1,45 @@
+{
+ "name": "Friend Example",
+ "type": "personal_chat",
+ "id": 4000000001,
+ "messages": [
+  {
+   "id": 1,
+   "type": "service",
+   "action": "phone_call",
+   "from": "Friend Example"
+  },
+  {
+   "id": 2,
+   "type": "message",
+   "from": "Friend Example",
+   "text": "How is the new job going?"
+  },
+  {
+   "id": 3,
+   "type": "message",
+   "from": "Deniz Example",
+   "text": [
+    "It is good but ",
+    {
+     "type": "bold",
+     "text": "very"
+    },
+    " stressful, I have many meeting every day."
+   ]
+  },
+  {
+   "id": 4,
+   "type": "message",
+   "from": "Deniz Example",
+   "photo": "photos/x.jpg",
+   "text": ""
+  },
+  {
+   "id": 5,
+   "type": "message",
+   "from": "Friend Example",
+   "text": "Hang in there!"
+  }
+ ]
+}

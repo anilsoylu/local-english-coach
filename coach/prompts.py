@@ -78,7 +78,7 @@ def system_prompt(
 
 
 def persona_text() -> str:
-    """Style note written by `python -m coach.instagram import`; empty when there is none."""
+    """Style note written by `python -m coach.chats import`; empty when there is none."""
     try:
         p = json.loads(config.PERSONA_PATH.read_text())
     except (OSError, ValueError):

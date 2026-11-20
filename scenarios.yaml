@@ -1,6 +1,6 @@
 # id: stable key. title: shown in UI (Turkish). role/setting: given to the model.
 # opening: first line the coach says. chunks: phrases seeded into spaced repetition when this scenario is used.
-# persona: true adds the style note from data/personal/friend-persona.json when it exists (see coach/instagram.py).
+# persona: true adds the style note from data/personal/friend-persona.json when it exists (see coach/chats.py).
 
 - id: smalltalk
   title: Sohbet (hafta sonu, yemek, planlar)

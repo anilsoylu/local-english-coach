@@ -293,6 +293,10 @@ $("end").onclick = end;
 $("timerToggle").checked = store("timer") === "1";
 $("timerToggle").onchange = (e) => { store("timer", e.target.checked ? "1" : "0"); if (e.target.checked) startTimer(); else { clearInterval(tick); $("timer").classList.add("hidden"); } };
 loadScenarios().then(resume);
+// The model leaves VRAM after 15 idle minutes; load it again whenever the page is opened or shown.
+const warm = () => fetch("api/warm", { method: "POST" }).catch(() => {});
+warm();
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") warm(); });
 </script>
 </body>
 </html>

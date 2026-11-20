@@ -32,6 +32,9 @@ LEARNER_ABOUT: str = " ".join(str(_learner.get("about") or "").split())  # empty
 CHAT_MODEL: str = os.environ.get("COACH_MODEL", _models.get("chat", "gemma4:e4b"))
 ANALYSIS_MODEL: str = os.environ.get("COACH_ANALYSIS_MODEL", _models.get("analysis", CHAT_MODEL))
 OLLAMA_URL: str = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
+# How long a model stays in VRAM after its last request. The page loads it again when it opens, so an idle
+# GPU is freed without a cold first reply. https://docs.ollama.com/faq.md
+KEEP_ALIVE: str = os.environ.get("COACH_KEEP_ALIVE", "15m")
 USER_ID: str = os.environ.get("COACH_USER", "default")
 DB_PATH = Path(os.environ.get("COACH_DB", ROOT / "data" / "coach.db"))
 # Personal material (chat exports, the friend persona). Gitignored with the rest of data/; missing means "feature off".

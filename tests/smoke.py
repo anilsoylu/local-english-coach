@@ -24,6 +24,26 @@ MESSAGES = [
 ]
 
 
+def ollama_down() -> list[str]:
+    """Ollama unreachable: the server still starts at once, and a failed reply leaves no dangling user turn."""
+    failures = []
+    t0 = time.perf_counter()
+    with test_server(port=8798, OLLAMA_URL="http://127.0.0.1:9") as (base, _):
+        if (ready := time.perf_counter() - t0) > 10:
+            failures.append(f"server took {ready:.1f}s to start with Ollama down")
+        c = httpx.Client(base_url=base, timeout=30)
+        sid = c.post("/api/session", json={"scenario": "smalltalk"}).json()["session_id"]
+        if c.post(f"/api/session/{sid}/message", json={"text": "x" * 2001}).status_code != 422:
+            failures.append("message over 2000 chars accepted")
+        reply = c.post(f"/api/session/{sid}/message", json={"text": "I go to beach."}).text
+        if "[error: " not in reply:
+            failures.append(f"no error marker with Ollama down: {reply!r}")
+        if [t["role"] for t in c.get(f"/api/session/{sid}").json()["turns"]] != ["assistant"]:
+            failures.append("failed turn was kept")
+    print("ollama-down checks:", "ok" if not failures else failures)
+    return failures
+
+
 def main() -> int:
     failures = []
     with test_server() as (base, log):
@@ -39,7 +59,15 @@ def main() -> int:
             print(f"USER: {m}\nCOACH ({time.perf_counter() - t0:.2f}s): {reply}")
             if not reply.strip() or "[error" in reply:
                 failures.append(f"bad reply to {m!r}")
+        state = c.get(f"/api/session/{sid}").json()
+        if len(state["turns"]) != 1 + 2 * len(MESSAGES) or state["ended"]:
+            failures.append(f"resume state wrong: {len(state['turns'])} turns, ended={state['ended']}")
         c.post(f"/api/session/{sid}/end")
+        if not c.get(f"/api/session/{sid}").json()["ended"]:
+            failures.append("session not marked ended")
+        mf = c.get("/static/manifest.webmanifest")
+        if mf.status_code != 200 or "manifest+json" not in mf.headers["content-type"]:
+            failures.append(f"manifest not served: {mf.status_code} {mf.headers.get('content-type')}")
         rep = {"ready": False}
         for _ in range(120):
             rep = c.get(f"/api/session/{sid}/report").json()
@@ -61,6 +89,7 @@ def main() -> int:
                     failures.append(f"error quotes a non-English or help turn: {e['original']!r}")
         if "Traceback" in log.read_text():
             failures.append("server log has a traceback")
+    failures += ollama_down()
     print("\nFAIL:\n- " + "\n- ".join(failures) if failures else "\nPASS")
     return 1 if failures else 0
 

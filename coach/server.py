@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -10,9 +11,10 @@ from pathlib import Path
 
 import httpx
 import yaml
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from coach import config, memory
 from coach.analyze import analyze_session, retry_pending
@@ -24,29 +26,43 @@ CHAT_MODEL = config.CHAT_MODEL
 USER_ID = config.USER_ID
 OPTIONS = {"num_ctx": 8192, "num_predict": 150, "temperature": 0.7}
 MAX_TURNS_IN_CONTEXT = 40
+ERROR_MARK = "\n[error: "  # the UI looks for this in the stream
 SCENARIOS = {s["id"]: s for s in yaml.safe_load((ROOT / "scenarios.yaml").read_text())}
 
 log = logging.getLogger("coach")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 
-async def warm_up() -> None:
-    try:
-        async with httpx.AsyncClient(timeout=300) as c:
-            await c.post(f"{OLLAMA}/api/chat", json={"model": CHAT_MODEL, "messages": [], "keep_alive": -1})
-        log.info("model %s loaded", CHAT_MODEL)
-    except Exception as e:  # server still starts; first message will load the model
-        log.warning("warm-up failed: %s", e)
+async def warm_up(http: httpx.AsyncClient) -> None:
+    """Load the chat model as soon as Ollama answers. At boot the container can start before Ollama does.
+    An empty chat request loads the model: https://docs.ollama.com/faq.md"""
+    delay = 1
+    while True:
+        try:
+            r = await http.post(f"{OLLAMA}/api/chat", json={"model": CHAT_MODEL, "messages": [], "keep_alive": -1},
+                                timeout=300)
+            r.raise_for_status()
+            log.info("model %s loaded", CHAT_MODEL)
+            return
+        except Exception as e:
+            log.warning("warm-up failed (%s), retrying in %ss", e, delay)
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 30)
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
-    await warm_up()
-    retry_pending()  # sessions that ended while the server was down
-    yield
+async def lifespan(app: FastAPI):
+    # One client for the app's lifetime so connections to Ollama are reused: https://www.python-httpx.org/async/
+    async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=5)) as http:
+        app.state.http = http
+        warming = asyncio.create_task(warm_up(http))  # in the background: the UI is up while the model loads
+        retry_pending()  # sessions that ended while the server was down
+        yield
+        warming.cancel()
 
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/static", StaticFiles(directory=ROOT / "web" / "static"), name="static")
 
 
 class StartBody(BaseModel):
@@ -54,7 +70,7 @@ class StartBody(BaseModel):
 
 
 class MessageBody(BaseModel):
-    text: str
+    text: str = Field(max_length=2000)
     response_ms: int | None = None
 
 
@@ -106,8 +122,19 @@ def build_messages(db, sid: int) -> list[dict]:
     return [{"role": "system", "content": s["system_prompt"]}] + [dict(t) for t in turns]
 
 
+@app.get("/api/session/{sid}")
+def session(sid: int) -> dict:
+    """Everything the UI needs to pick a session up again after a reload or a laptop sleep."""
+    db = memory.connect()
+    s = db.execute("SELECT scenario, ended_at FROM sessions WHERE id=? AND user_id=?", (sid, USER_ID)).fetchone()
+    if not s:
+        raise HTTPException(404)
+    turns = db.execute("SELECT role, content, is_help FROM turns WHERE session_id=? ORDER BY id", (sid,)).fetchall()
+    return {"scenario": s["scenario"], "ended": bool(s["ended_at"]), "turns": [dict(t) for t in turns]}
+
+
 @app.post("/api/session/{sid}/message")
-async def message(sid: int, body: MessageBody) -> StreamingResponse:
+async def message(sid: int, body: MessageBody, request: Request) -> StreamingResponse:
     text = body.text.strip()
     if not text:
         raise HTTPException(400, "empty")
@@ -116,12 +143,13 @@ async def message(sid: int, body: MessageBody) -> StreamingResponse:
     if not s or s["ended_at"]:
         raise HTTPException(409, "session not active")
     with db:
-        db.execute(
+        turn_id = db.execute(
             "INSERT INTO turns(session_id, role, content, lang, is_help, response_ms, created_at) VALUES (?,?,?,?,?,?,?)",
             (sid, "user", text, memory.detect_lang(text), int(memory.is_help(text)), body.response_ms, memory.now()),
-        )
+        ).lastrowid
     messages = build_messages(db, sid)
     db.close()
+    http: httpx.AsyncClient = request.app.state.http
 
     async def gen():
         parts: list[str] = []
@@ -130,23 +158,27 @@ async def message(sid: int, body: MessageBody) -> StreamingResponse:
         final: dict = {}
         payload = {"model": CHAT_MODEL, "messages": messages, "stream": True, "think": False, "options": OPTIONS}
         try:
-            async with httpx.AsyncClient(timeout=120) as c:
-                async with c.stream("POST", f"{OLLAMA}/api/chat", json=payload) as r:
-                    r.raise_for_status()
-                    async for line in r.aiter_lines():
-                        if not line:
-                            continue
-                        chunk = json.loads(line)
-                        piece = chunk.get("message", {}).get("content", "")
-                        if piece:
-                            ttft = ttft or time.perf_counter() - t0
-                            parts.append(piece)
-                            yield piece
-                        if chunk.get("done"):
-                            final = chunk
+            async with http.stream("POST", f"{OLLAMA}/api/chat", json=payload) as r:
+                r.raise_for_status()
+                async for line in r.aiter_lines():
+                    if not line:
+                        continue
+                    chunk = json.loads(line)
+                    piece = chunk.get("message", {}).get("content", "")
+                    if piece:
+                        ttft = ttft or time.perf_counter() - t0
+                        parts.append(piece)
+                        yield piece
+                    if chunk.get("done"):
+                        final = chunk
         except Exception as e:
             log.exception("ollama error")
-            yield f"\n[error: {e}]"
+            # Drop the learner's turn too, so a retry doesn't leave two user turns in a row in the context.
+            db2 = memory.connect()
+            with db2:
+                db2.execute("DELETE FROM turns WHERE id=?", (turn_id,))
+            db2.close()
+            yield f"{ERROR_MARK}{e}]"
             return
         reply = "".join(parts).strip()
         db2 = memory.connect()

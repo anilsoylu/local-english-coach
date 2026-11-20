@@ -18,6 +18,6 @@ models:
   analysis: gemma4:26b-a4b
 
 server:
-  # 127.0.0.1 = this machine only. Use your Tailscale IP to reach it from your other devices.
+  # Keep 127.0.0.1. To reach it from your other devices, run `sudo ./setup.sh --tailscale` (Tailscale Serve).
   host: 127.0.0.1
   port: 8765

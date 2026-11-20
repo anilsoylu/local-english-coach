@@ -1,7 +1,8 @@
 [project]
 name = "english-coach"
 version = "0.1.0"
-description = "Local voice English speaking coach (Pipecat + Ollama + Whisper + Kokoro)"
+description = "Local English conversation coach for Turkish speakers (Ollama + FastAPI)"
+license = "MIT"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "httpx>=0.27",

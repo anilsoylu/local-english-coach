@@ -1,10 +1,9 @@
-"""Text chat server. Run: uv run uvicorn coach.server:app --host 127.0.0.1 --port 8765"""
+"""Text chat server. Run: python -m coach (host/port from config.yaml)"""
 
 from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,14 +14,14 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-from coach import memory
+from coach import config, memory
 from coach.analyze import analyze_session, retry_pending
-from coach.prompts import DEFAULT_PROFILE, PROMPT_VERSION, scenario_text, system_prompt
+from coach.prompts import PROMPT_VERSION, opening, scenario_text, system_prompt
 
 ROOT = Path(__file__).resolve().parent.parent
-OLLAMA = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
-CHAT_MODEL = os.environ.get("COACH_MODEL", "qwen3.5:9b")
-USER_ID = os.environ.get("COACH_USER", "anil")
+OLLAMA = config.OLLAMA_URL
+CHAT_MODEL = config.CHAT_MODEL
+USER_ID = config.USER_ID
 OPTIONS = {"num_ctx": 8192, "num_predict": 150, "temperature": 0.7}
 MAX_TURNS_IN_CONTEXT = 40
 SCENARIOS = {s["id"]: s for s in yaml.safe_load((ROOT / "scenarios.yaml").read_text())}
@@ -76,12 +75,13 @@ def start(body: StartBody) -> dict:
         raise HTTPException(404, "unknown scenario")
     db = memory.connect()
     with db:
-        prof = memory.get_profile(db, USER_ID, {"name": "Anil", "level": "A2+", "about": DEFAULT_PROFILE})
+        prof = memory.get_profile(db, USER_ID, {"name": config.LEARNER_NAME, "level": config.LEARNER_LEVEL,
+                                                "about": config.LEARNER_ABOUT})
         for c in sc.get("chunks", []):
             memory.upsert_chunk(db, USER_ID, c["phrase"], c.get("meaning", ""), due_in_days=0)
         due = memory.due_chunks(db, USER_ID)
         sysmsg = system_prompt(
-            name=prof["name"], level=prof["level"], profile=prof["about"], scenario=scenario_text(sc),
+            name=prof["name"], level=prof["level"], profile=prof["about"], scenario=scenario_text(sc, prof["name"]),
             chunks=[c["phrase"] for c in due], last_summary=prof["last_summary"],
         )
         cur = db.execute(
@@ -91,10 +91,10 @@ def start(body: StartBody) -> dict:
         )
         sid = cur.lastrowid
         db.execute("INSERT INTO turns(session_id, role, content, created_at) VALUES (?,?,?,?)",
-                   (sid, "assistant", sc["opening"], memory.now()))
+                   (sid, "assistant", opening(sc, prof["name"]), memory.now()))
     return {
         "session_id": sid,
-        "opening": sc["opening"],
+        "opening": opening(sc, prof["name"]),
         "warmup": [{"phrase": c["phrase"], "meaning": c["meaning"]} for c in due],
     }
 

@@ -1,0 +1,23 @@
+# Format reference only, never loaded. Copy to config.yaml (gitignored) and edit.
+# Every field is optional: a missing or empty value turns that part off or uses a neutral default.
+# Environment variables override these: COACH_MODEL, COACH_ANALYSIS_MODEL, COACH_DB, COACH_USER.
+
+learner:
+  name: Deniz
+  # Rough CEFR level. The end-of-session analysis updates the stored level after each session.
+  level: A2+
+  # One or two sentences. The coach uses this to pick topics and scenario details.
+  about: >-
+    Freelance web developer in Ankara. Works with React and Node.js, finds clients on freelance
+    platforms and talks to them on video calls.
+
+models:
+  # Conversation model: must fit fully in VRAM with room for an 8k context. See bench/ and AGENTS.md.
+  chat: gemma4:e4b
+  # End-of-session analysis: runs once per session, can be slower and larger.
+  analysis: gemma4:26b-a4b
+
+server:
+  # 127.0.0.1 = this machine only. Use your Tailscale IP to reach it from your other devices.
+  host: 127.0.0.1
+  port: 8765

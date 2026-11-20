@@ -3,3 +3,6 @@ __pycache__/
 data/
 backups/
 bench/results/
+config.yaml
+.env
+tests/screenshots/

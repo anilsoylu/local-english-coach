@@ -1,5 +1,6 @@
 # id: stable key. title: shown in UI (Turkish). role/setting: given to the model.
 # opening: first line the coach says. chunks: phrases seeded into spaced repetition when this scenario is used.
+# persona: true adds the style note from data/personal/friend-persona.json when it exists (see coach/instagram.py).
 
 - id: smalltalk
   title: Sohbet (hafta sonu, yemek, planlar)
@@ -108,3 +109,17 @@
       meaning: "... alabilir miyim?"
     - phrase: "Is it possible to ...?"
       meaning: "... mümkün mü?"
+
+- id: friend-chat
+  title: Arkadaş sohbeti (yurtdışından bir arkadaş)
+  role: a friend from another country who chats with {name} on Instagram. Share small things from your own week too, like a real friend
+  setting: Relaxed chat about daily life, plans, work, travel and whatever comes up.
+  persona: true
+  opening: "Heyy {name}! What have you been up to lately?"
+  chunks:
+    - phrase: "Not much, just ..."
+      meaning: "Pek bir şey yok, sadece ..."
+    - phrase: "I've been so busy with ..."
+      meaning: "... ile çok meşguldüm"
+    - phrase: "That sounds like fun!"
+      meaning: "Kulağa eğlenceli geliyor!"

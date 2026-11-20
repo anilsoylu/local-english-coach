@@ -1,0 +1,111 @@
+{
+  "participants": [
+    {
+      "name": "Friend Example"
+    },
+    {
+      "name": "Deniz Example"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Friend Example",
+      "timestamp_ms": 1767285540000,
+      "share": {
+        "link": "https://example.com/post"
+      },
+      "content": "Friend Example shared a post"
+    },
+    {
+      "sender_name": "Deniz Example",
+      "timestamp_ms": 1767285480000,
+      "photos": [
+        {
+          "uri": "photos/example.jpg"
+        }
+      ]
+    },
+    {
+      "sender_name": "Deniz Example",
+      "timestamp_ms": 1767226320000,
+      "content": "Ok",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Friend Example",
+      "timestamp_ms": 1767226260000,
+      "content": "Deniz Example sent an attachment.",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Deniz Example",
+      "timestamp_ms": 1767226200000,
+      "content": "You should send me photo, I am curious how it looks.",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Friend Example",
+      "timestamp_ms": 1767226140000,
+      "content": "Haha same, I tried a new climbing place, so much fun",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Deniz Example",
+      "timestamp_ms": 1767226080000,
+      "content": "Yesterday I go to the gym after work and I was very tired.",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Friend Example",
+      "timestamp_ms": 1767226020000,
+      "content": "Liked a message",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Deniz Example",
+      "timestamp_ms": 1767225960000,
+      "content": "Hafta sonu \u00c3\u00a7ok yo\u00c4\u009fun olacak ama",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Deniz Example",
+      "timestamp_ms": 1767225900000,
+      "content": "Maybe yes, I want to go to \u00c3\u0087e\u00c5\u009fme with my friends.",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Friend Example",
+      "timestamp_ms": 1767225840000,
+      "content": "That sounds stressful haha. Do you have time for the weekend?",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Deniz Example",
+      "timestamp_ms": 1767225780000,
+      "content": "A mobile app for booking, the client want it until next month.",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Friend Example",
+      "timestamp_ms": 1767225720000,
+      "content": "Oh nice, what kind of project? \u00f0\u009f\u0098\u0084",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Deniz Example",
+      "timestamp_ms": 1767225660000,
+      "content": "It was very busy, I am working on new project for a client.",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Friend Example",
+      "timestamp_ms": 1767225600000,
+      "content": "Hey! How was your week?",
+      "is_geoblocked_for_viewer": false
+    }
+  ],
+  "title": "Friend Example",
+  "is_still_participant": true,
+  "thread_path": "inbox/friendexample_1000000000000001",
+  "magic_words": []
+}

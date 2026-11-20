@@ -32,4 +32,5 @@ RUN --mount=type=cache,target=/root/.cache/uv \
  && rm -rf /var/lib/apt/lists/*
 COPY tests ./tests
 COPY bench ./bench
+COPY examples ./examples
 CMD ["python", "tests/smoke.py"]

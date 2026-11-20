@@ -1,0 +1,28 @@
+{
+  "participants": [
+    {
+      "name": "Other Example"
+    },
+    {
+      "name": "Deniz Example"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "Deniz Example",
+      "timestamp_ms": 1767225660000,
+      "content": "Yes, see you at ten.",
+      "is_geoblocked_for_viewer": false
+    },
+    {
+      "sender_name": "Other Example",
+      "timestamp_ms": 1767225600000,
+      "content": "Are we still meeting tomorrow?",
+      "is_geoblocked_for_viewer": false
+    }
+  ],
+  "title": "Other Example",
+  "is_still_participant": true,
+  "thread_path": "inbox/otherexample_1000000000000002",
+  "magic_words": []
+}

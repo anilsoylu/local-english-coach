@@ -69,6 +69,8 @@ def main() -> int:
         c.post(f"/api/session/{sid}/end")
         if not c.get(f"/api/session/{sid}").json()["ended"]:
             failures.append("session not marked ended")
+        if c.post("/api/warm").json() != {"ok": True}:
+            failures.append("warm endpoint failed")
         mf = c.get("/static/manifest.webmanifest")
         if mf.status_code != 200 or "manifest+json" not in mf.headers["content-type"]:
             failures.append(f"manifest not served: {mf.status_code} {mf.headers.get('content-type')}")

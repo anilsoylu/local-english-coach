@@ -66,7 +66,7 @@ Ollama settings (`deploy/ollama.override.conf`, see https://docs.ollama.com/faq.
 |---|---|
 | `OLLAMA_FLASH_ATTENTION=1` | Needed for the quantized KV cache |
 | `OLLAMA_KV_CACHE_TYPE=q8_0` | Halves KV cache memory |
-| `OLLAMA_KEEP_ALIVE=-1` | Chat model stays loaded, no cold start |
+| `OLLAMA_KEEP_ALIVE=15m` | Frees the VRAM 15 minutes after the last request. The page calls `POST /api/warm` when it opens or comes back into view, so the model is loaded again before the first message. The app sends the same value per request (`COACH_KEEP_ALIVE`). |
 | `OLLAMA_NUM_PARALLEL=1` | One user, so one KV cache allocation |
 | `OLLAMA_MAX_LOADED_MODELS=1` | The analysis model replaces the chat model while it runs. The app reloads the chat model afterwards. |
 | `OLLAMA_CONTEXT_LENGTH=8192` | A 30-minute session fits. The request also sets `num_ctx`. |

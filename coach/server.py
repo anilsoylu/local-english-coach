@@ -34,13 +34,13 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 
 async def warm_up(http: httpx.AsyncClient) -> None:
-    """Load the chat model as soon as Ollama answers. At boot the container can start before Ollama does.
+    """Load the chat model, retrying until Ollama answers (it can still be starting after a reboot).
     An empty chat request loads the model: https://docs.ollama.com/faq.md"""
     delay = 1
     while True:
         try:
-            r = await http.post(f"{OLLAMA}/api/chat", json={"model": CHAT_MODEL, "messages": [], "keep_alive": -1},
-                                timeout=300)
+            r = await http.post(f"{OLLAMA}/api/chat",
+                                json={"model": CHAT_MODEL, "messages": [], "keep_alive": config.KEEP_ALIVE}, timeout=300)
             r.raise_for_status()
             log.info("model %s loaded", CHAT_MODEL)
             return
@@ -55,10 +55,11 @@ async def lifespan(app: FastAPI):
     # One client for the app's lifetime so connections to Ollama are reused: https://www.python-httpx.org/async/
     async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=5)) as http:
         app.state.http = http
-        warming = asyncio.create_task(warm_up(http))  # in the background: the UI is up while the model loads
+        app.state.warming = None
         retry_pending()  # sessions that ended while the server was down
         yield
-        warming.cancel()
+        if app.state.warming:
+            app.state.warming.cancel()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -77,6 +78,16 @@ class MessageBody(BaseModel):
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(ROOT / "web" / "index.html")
+
+
+@app.post("/api/warm")
+async def warm(request: Request) -> dict:
+    """Called when the page opens or comes back into view, so the model is in VRAM before the first message.
+    One load at a time; the request returns at once."""
+    state = request.app.state
+    if not state.warming or state.warming.done():
+        state.warming = asyncio.create_task(warm_up(state.http))
+    return {"ok": True}
 
 
 @app.get("/api/scenarios")
@@ -156,7 +167,8 @@ async def message(sid: int, body: MessageBody, request: Request) -> StreamingRes
         t0 = time.perf_counter()
         ttft = None
         final: dict = {}
-        payload = {"model": CHAT_MODEL, "messages": messages, "stream": True, "think": False, "options": OPTIONS}
+        payload = {"model": CHAT_MODEL, "messages": messages, "stream": True, "think": False, "options": OPTIONS,
+                   "keep_alive": config.KEEP_ALIVE}
         try:
             async with http.stream("POST", f"{OLLAMA}/api/chat", json=payload) as r:
                 r.raise_for_status()

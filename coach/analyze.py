@@ -101,7 +101,7 @@ def call_model(prompt: str, model: str = ANALYSIS_MODEL, schema: dict = SCHEMA) 
     body = {
         "model": model, "stream": False, "think": False, "format": schema,
         "messages": [{"role": "user", "content": prompt + "\n\nJSON schema:\n" + json.dumps(schema)}],
-        "options": {"temperature": 0, "num_ctx": 16384},
+        "options": {"temperature": 0, "num_ctx": 16384}, "keep_alive": config.KEEP_ALIVE,
     }
     r = httpx.post(f"{OLLAMA}/api/chat", json=body, timeout=900)
     r.raise_for_status()
@@ -150,7 +150,8 @@ def analysis_slot():
         finally:
             if ANALYSIS_MODEL != CHAT_MODEL:
                 try:
-                    httpx.post(f"{OLLAMA}/api/chat", json={"model": CHAT_MODEL, "messages": []}, timeout=300)
+                    httpx.post(f"{OLLAMA}/api/chat", json={"model": CHAT_MODEL, "messages": [],
+                                                            "keep_alive": config.KEEP_ALIVE}, timeout=300)
                 except Exception:
                     pass
 

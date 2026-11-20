@@ -25,6 +25,8 @@ Linux with an NVIDIA GPU and Docker Engine (not Docker Desktop, whose VM can't r
 sudo ./setup.sh --tailscale   # or: sudo ./setup.sh  (localhost only), --host IP --port N
 ```
 
+`--tailscale` keeps the app on 127.0.0.1 and shares it through Tailscale Serve (HTTPS when the tailnet has certificates, otherwise HTTP on the app port). Don't bind the app to the Tailscale IP: if Docker starts before `tailscaled` at boot, the bind fails.
+
 `setup.sh` installs Ollama natively if it's missing and applies `deploy/ollama.override.conf`. It then picks models for the VRAM it finds, writes `config.yaml` if there isn't one, pulls the models, starts the app with `docker compose up -d --build` (restart policy `unless-stopped`, so it comes back after a reboot) and adds a daily backup cron job. It is safe to run again.
 
 Without Docker: `uv sync && uv run python -m coach`.
@@ -79,6 +81,7 @@ coach/analyze.py    end-of-session analysis (JSON schema) and the code-side clea
 coach/memory.py     SQLite schema, Turkish/help detection, Leitner spaced repetition
 coach/config.py     config.yaml + env vars (COACH_MODEL, COACH_ANALYSIS_MODEL, COACH_DB, COACH_USER, COACH_HOST, COACH_PORT)
 web/index.html      the whole UI, no build step
+web/static/         manifest and icons for "Add to Dock" / home screen
 scenarios.yaml      roles, openings and seed phrases; {name} is the learner's name
 bench/              chat bench (cases.yaml) and analysis bench (transcripts.yaml)
 tests/              smoke and UI tests

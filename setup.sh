@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-shot install on Linux with an NVIDIA GPU and Docker. Safe to re-run.
 #   sudo ./setup.sh               # serve on 127.0.0.1 (this machine only)
-#   sudo ./setup.sh --tailscale   # serve on this machine's Tailscale IP (your other devices)
+#   sudo ./setup.sh --tailscale   # also share it with your tailnet through Tailscale Serve (your other devices)
 #   sudo ./setup.sh --host IP --port N
 # What it does: installs Ollama natively (if missing) with the tuned settings in
 # deploy/ollama.override.conf, picks models for your VRAM, writes config.yaml if it doesn't exist,
@@ -9,10 +9,12 @@
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-HOST="" PORT=""
+HOST="" PORT="" TAILSCALE=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --tailscale) HOST="$(tailscale ip -4 | head -1)" ;;
+    # The app stays on 127.0.0.1 and Tailscale Serve proxies to it, so a late tailscaled at boot can't break the bind
+    # and tailnet clients can't reach the app directly. https://tailscale.com/kb/1312/serve
+    --tailscale) TAILSCALE=1 HOST=127.0.0.1 ;;
     --host) HOST="$2"; shift ;;
     --port) PORT="$2"; shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
@@ -97,9 +99,24 @@ for _ in $(seq 1 60); do curl -sf "http://$CFG_HOST:$CFG_PORT/api/scenarios" >/d
 curl -sf "http://$CFG_HOST:$CFG_PORT/api/scenarios" >/dev/null \
   || { echo "app did not answer; check: docker compose logs coach" >&2; exit 1; }
 
+if [ -n "$TAILSCALE" ]; then
+  say "Tailscale Serve"
+  DNS="$(tailscale status --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')"
+  if tailscale status --json | python3 -c 'import json,sys; sys.exit(not json.load(sys.stdin).get("CertDomains"))'; then
+    tailscale serve --bg --yes --https=443 "http://127.0.0.1:$CFG_PORT"
+    URL="https://$DNS"
+  else
+    # No tailnet certificates yet: plain HTTP over the encrypted tailnet until HTTPS is turned on.
+    tailscale serve --bg --yes --http="$CFG_PORT" "http://127.0.0.1:$CFG_PORT"
+    URL="http://$DNS:$CFG_PORT"
+    echo "For HTTPS (needed for 'Add to Dock' with full app features), enable HTTPS Certificates at"
+    echo "https://login.tailscale.com/admin/dns and run this script again."
+  fi
+fi
+
 say "Daily backup (03:30, keeps 14 days)"
 CRON="30 3 * * * cd $DIR && /usr/bin/python3 deploy/backup.py"
 ( crontab -u "$RUN_USER" -l 2>/dev/null | grep -v 'deploy/backup.py' || true; echo "$CRON" ) | crontab -u "$RUN_USER" -
 
-say "Done: http://$CFG_HOST:$CFG_PORT"
+say "Done: ${URL:-http://$CFG_HOST:$CFG_PORT}"
 echo "Check the models on your hardware: uv run bench/run.py $CHAT   (see AGENTS.md)"

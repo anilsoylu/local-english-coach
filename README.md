@@ -41,7 +41,9 @@ sudo ./setup.sh
 
 The script installs Ollama if it's missing, tunes it, picks models for your VRAM, pulls them and starts the app with Docker Compose. The app restarts on its own after a reboot. Then open http://127.0.0.1:8765.
 
-To use it from your phone or laptop, put the machine on [Tailscale](https://tailscale.com) and run `sudo ./setup.sh --tailscale`. The app then listens on the machine's Tailscale IP, so only your own devices can reach it. On a phone, the keyboard's microphone button lets you speak your answers instead of typing them.
+To use it from your phone or laptop, put the machine on [Tailscale](https://tailscale.com) and run `sudo ./setup.sh --tailscale`. The app keeps listening on 127.0.0.1, and [Tailscale Serve](https://tailscale.com/kb/1312/serve) shares it with your tailnet only, at `https://<machine-name>.<tailnet>.ts.net`. HTTPS needs the tailnet's HTTPS certificates. Turn them on once in the admin console under DNS. Until you do, the script serves plain HTTP on port 8765 inside the tailnet and prints the link to turn HTTPS on.
+
+On a Mac, open that address in Safari and choose File > Add to Dock to get a standalone app window. On a phone, the keyboard's microphone button lets you speak your answers instead of typing them. If you reload the page or the laptop sleeps, the open session comes back.
 
 ## Personalize
 

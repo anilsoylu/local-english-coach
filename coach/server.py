@@ -190,7 +190,10 @@ async def message(sid: int, body: MessageBody, request: Request) -> StreamingRes
                  sid, ttft or 0, time.perf_counter() - t0, final.get("prompt_eval_count"),
                  final.get("prompt_eval_cached_count"), final.get("eval_count"))
 
-    return StreamingResponse(gen(), media_type="text/plain; charset=utf-8")
+    # Not text/plain, plus no-transform: Cloudflare can buffer or compress plain-text streams, which would hold
+    # the reply back until it is complete. https://developers.cloudflare.com/rules/configuration-rules/response-body-inspection/
+    return StreamingResponse(gen(), media_type="application/octet-stream",
+                             headers={"Cache-Control": "no-cache, no-transform"})
 
 
 @app.post("/api/session/{sid}/end")

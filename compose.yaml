@@ -1,0 +1,68 @@
+services:
+  coach:
+    build:
+      context: .
+      target: app
+    image: english-coach:latest
+    # Comes back after a reboot. A container you stop by hand stays stopped.
+    restart: unless-stopped
+    # Host network: reaches Ollama on 127.0.0.1:11434 and can bind the host's Tailscale IP
+    # (server.host in config.yaml). Ports are not published in this mode.
+    network_mode: host
+    # Run as your user so data/ stays owned by you. setup.sh writes these into .env.
+    user: "${COACH_UID:-1000}:${COACH_GID:-1000}"
+    volumes:
+      - ./data:/app/data
+      - type: bind
+        source: ./config.yaml
+        target: /app/config.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+
+  # Tests in a throwaway container with its own temp DB; production data is never touched.
+  # Uses the same Ollama as the app, so run it on the GPU machine.
+  #   docker compose --profile test run --rm test                         # API smoke test
+  #   docker compose --profile test run --rm test python tests/ui-test.py # headless browser test
+  test:
+    build:
+      context: .
+      target: test
+    profiles: ["test"]
+    network_mode: host
+    environment:
+      COACH_MODEL: ${COACH_MODEL:-gemma4:e4b}
+      COACH_ANALYSIS_MODEL: ${COACH_ANALYSIS_MODEL:-gemma4:26b-a4b}
+    shm_size: 1gb
+    volumes:
+      - ./tests/screenshots:/app/tests/screenshots
+
+  # Optional: Ollama in Docker, for machines without a native install.
+  # Needs the NVIDIA Container Toolkit for GPU:
+  # https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+  # Start with: docker compose --profile ollama up -d
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    environment:
+      OLLAMA_FLASH_ATTENTION: "1"
+      OLLAMA_KV_CACHE_TYPE: q8_0
+      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_CONTEXT_LENGTH: "8192"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  ollama:

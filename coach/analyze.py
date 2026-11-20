@@ -4,19 +4,17 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import statistics
 import threading
 from datetime import datetime, timedelta
 
 import httpx
 
-from coach import memory
+from coach import config, memory
 
-OLLAMA = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
-ANALYSIS_MODEL = os.environ.get("COACH_ANALYSIS_MODEL", "qwen3.5:9b")
-CHAT_MODEL = os.environ.get("COACH_MODEL", "qwen3.5:9b")
-ANALYSIS_THINK = os.environ.get("COACH_ANALYSIS_THINK", "0") == "1"
+OLLAMA = config.OLLAMA_URL
+ANALYSIS_MODEL = config.ANALYSIS_MODEL
+CHAT_MODEL = config.CHAT_MODEL
 STALE_AFTER = timedelta(hours=2)
 
 log = logging.getLogger("coach.analyze")
@@ -76,10 +74,11 @@ Return JSON with:
 - recurring_errors: updated short list (English, max 5) of error patterns that keep coming back, merging the old list with what you saw.
 - level_estimate: from the USER lines.
 - summary: 2 sentences in English for the coach to read next time: what {name} talked about and what to practice.
-- feedback_tr: 2-3 short sentences in Turkish to {name}: one concrete thing that went well and one thing to focus on. \
+- feedback_tr: 2-3 short sentences in Turkish, speaking directly to {name} with "sen" (never "siz", never third person): \
+one concrete thing that went well and one thing to focus on. Only praise what the USER lines actually show. \
 Plain and specific. No praise words like "harika", "mükemmel", no exclamation marks, no lists, no dashes.
 
-Only judge USER lines. Use only things that appear in the transcript."""
+Only judge USER lines. Use only things that appear in the transcript. Write every Turkish field with "sen", not "siz"."""
 
 
 def text_metrics(turns: list[dict]) -> dict:
@@ -97,9 +96,9 @@ def text_metrics(turns: list[dict]) -> dict:
     }
 
 
-def call_model(prompt: str) -> dict:
+def call_model(prompt: str, model: str = ANALYSIS_MODEL) -> dict:
     body = {
-        "model": ANALYSIS_MODEL, "stream": False, "think": ANALYSIS_THINK, "format": SCHEMA,
+        "model": model, "stream": False, "think": False, "format": SCHEMA,
         "messages": [{"role": "user", "content": prompt + "\n\nJSON schema:\n" + json.dumps(SCHEMA)}],
         "options": {"temperature": 0, "num_ctx": 16384},
     }
@@ -108,25 +107,21 @@ def call_model(prompt: str) -> dict:
     return json.loads(r.json()["message"]["content"])
 
 
-def _norm(s: str) -> str:
-    return " ".join("".join(ch if ch.isalnum() or ch in " '" else " " for ch in s.lower().replace("’", "'")).split())
-
-
 def clean_report(rep: dict, turns: list[dict], known: list[str]) -> None:
     """The model doesn't reliably follow the prompt, so enforce the rules in code:
     quotes must come from normal English USER turns (not help/Turkish, not the coach),
     no duplicates, and no 'new' chunks the learner already practices."""
-    eligible = [_norm(t["content"]) for t in turns
+    eligible = [memory.normalize(t["content"]) for t in turns
                 if t["role"] == "user" and not t["is_help"] and t["lang"] == "en"]
 
     def from_user(quote: str) -> bool:
-        q = _norm(quote)
+        q = memory.normalize(quote)
         return bool(q) and any(q in u for u in eligible)
 
     def dedupe(items: list[dict], key: str) -> list[dict]:
         seen, out = set(), []
         for it in items:
-            k = _norm(it.get(key, ""))
+            k = memory.normalize(it.get(key, ""))
             if k not in seen:
                 seen.add(k)
                 out.append(it)
@@ -134,10 +129,14 @@ def clean_report(rep: dict, turns: list[dict], known: list[str]) -> None:
 
     rep["errors"] = dedupe([e for e in rep.get("errors", []) if from_user(e["original"])], "original")
     rep["natural"] = dedupe([n for n in rep.get("natural", []) if from_user(n["original"])
-                             and _norm(n["natural"]) != _norm(n["original"])], "original")
-    known_n = {_norm(k).rstrip(" .") for k in known}
-    rep["chunks"] = dedupe([c for c in rep.get("chunks", []) if _norm(c["phrase"]).rstrip(" .") not in known_n],
-                           "phrase")
+                             and memory.normalize(n["natural"]) != memory.normalize(n["original"])], "original")
+    known_n = [memory.normalize(k) for k in known]
+
+    def is_known(phrase: str) -> bool:  # "give you a heads-up" matches "I wanted to give you a heads-up about ..."
+        p = memory.normalize(phrase)
+        return any(p in k or k in p for k in known_n)
+
+    rep["chunks"] = dedupe([c for c in rep.get("chunks", []) if not is_known(c["phrase"])], "phrase")
 
 
 def analyze_session(sid: int) -> None:
@@ -193,7 +192,7 @@ def _analyze(sid: int) -> None:
     transcript = "\n".join(line(t) for t in turns)
     known = [r["phrase"] for r in db.execute("SELECT phrase FROM chunks WHERE user_id=?", (s["user_id"],))]
     log.info("analyzing session %s with %s (%d turns)", sid, ANALYSIS_MODEL, len(turns))
-    rep = call_model(PROMPT.format(name=prof["name"], level=prof["level"],
+    rep = call_model(PROMPT.format(name=prof["name"] or "the learner", level=prof["level"],
                                    recurring=", ".join(prof["recurring_errors"]) or "none yet",
                                    known="; ".join(known) or "none",
                                    transcript=transcript))

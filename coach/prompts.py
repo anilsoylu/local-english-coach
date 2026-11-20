@@ -1,5 +1,9 @@
 """System prompts for the conversation model. Bump PROMPT_VERSION on every change so bench results stay comparable."""
 
+import re
+
+from coach import config
+
 PROMPT_VERSION = "v3"
 
 # Spoken-English subset of the humanizer skill rules. Spoken chunks like
@@ -36,9 +40,7 @@ When {name} is stuck:
 
 {speak}
 
-About {name}: {profile}
-
-Today's scenario: {scenario}{extras}"""
+{about}Today's scenario: {scenario}{extras}"""
 
 ROLE = "In this conversation you play {role}. Stay in that role, but keep the rules above. {setting}"
 
@@ -49,31 +51,34 @@ Phrases {name} is practicing (from earlier sessions). Early in the conversation,
 
 LAST = "\n\nLast session, briefly: {summary}"
 
-DEFAULT_PROFILE = (
-    "Freelance full-stack and mobile developer living in Izmir, works with TypeScript, Next.js, Expo and Python, "
-    "looking for clients on Upwork and talks to them on video calls."
-)
 
 DEFAULT_SCENARIO = "Casual small talk at the start of a call: weekend, food, plans. Keep it relaxed."
 
 
 def system_prompt(
-    name: str = "Anil",
-    level: str = "A2+",
-    profile: str = DEFAULT_PROFILE,
+    name: str = config.LEARNER_NAME,
+    level: str = config.LEARNER_LEVEL,
+    profile: str = config.LEARNER_ABOUT,
     scenario: str = DEFAULT_SCENARIO,
     chunks: list[str] | None = None,
     last_summary: str = "",
 ) -> str:
     """Built once per session and kept byte-identical so Ollama can reuse the cached prefix."""
+    name = name or "the learner"
     extras = ""
     if chunks:
         extras += CHUNKS.format(name=name, items="\n".join(f"- {c}" for c in chunks))
     if last_summary:
         extras += LAST.format(summary=last_summary)
-    return CORE.format(name=name, level=level, profile=profile, scenario=scenario,
+    about = f"About {name}: {profile}\n\n" if profile.strip() else ""
+    return CORE.format(name=name, level=level, about=about, scenario=scenario,
                        speak=SPEAK_LIKE_A_PERSON, extras=extras)
 
 
-def scenario_text(sc: dict) -> str:
-    return ROLE.format(role=sc["role"], setting=sc["setting"])
+def scenario_text(sc: dict, name: str = config.LEARNER_NAME) -> str:
+    return ROLE.format(role=sc["role"], setting=sc["setting"]).replace("{name}", name or "the learner")
+
+
+def opening(sc: dict, name: str = config.LEARNER_NAME) -> str:
+    """'Hi {name}, thanks' -> 'Hi Deniz, thanks', or 'Hi, thanks' when no name is set."""
+    return sc["opening"].replace("{name}", name) if name else re.sub(r",? \{name\}", "", sc["opening"])

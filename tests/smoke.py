@@ -59,8 +59,12 @@ def main() -> int:
             print(f"USER: {m}\nCOACH ({time.perf_counter() - t0:.2f}s): {reply}")
             if not reply.strip() or "[error" in reply:
                 failures.append(f"bad reply to {m!r}")
+        with c.stream("POST", f"/api/session/{sid}/message", json={"text": "Tell me more about it."}) as r:
+            r.read()
+            if "no-transform" not in r.headers.get("cache-control", "") or "text/plain" in r.headers["content-type"]:
+                failures.append(f"stream headers let proxies buffer it: {dict(r.headers)}")
         state = c.get(f"/api/session/{sid}").json()
-        if len(state["turns"]) != 1 + 2 * len(MESSAGES) or state["ended"]:
+        if len(state["turns"]) != 3 + 2 * len(MESSAGES) or state["ended"]:
             failures.append(f"resume state wrong: {len(state['turns'])} turns, ended={state['ended']}")
         c.post(f"/api/session/{sid}/end")
         if not c.get(f"/api/session/{sid}").json()["ended"]:

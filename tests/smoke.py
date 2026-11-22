@@ -41,7 +41,7 @@ def ollama_down() -> list[str]:
     the learner never wrote in still ends and gets its metrics without a model."""
     failures = []
     t0 = time.perf_counter()
-    with test_server(port=8798, OLLAMA_URL="http://127.0.0.1:9") as (base, _):
+    with test_server(port=8798, OLLAMA_URL="http://127.0.0.1:9") as (base, log):
         if (ready := time.perf_counter() - t0) > 10:
             failures.append(f"server took {ready:.1f}s to start with Ollama down")
         c = httpx.Client(base_url=base, timeout=30)
@@ -61,6 +61,20 @@ def ollama_down() -> list[str]:
         rep = wait_report(c, sid, tries=20, wait=0.5)
         if not rep["ready"] or rep["report"] != {} or rep["metrics"]["user_turns"] != 0:
             failures.append(f"session without learner turns not analyzed in code: {rep}")
+        # Broken offered_chunks: storing the early metrics fails, but the job still runs, fails, and frees the session.
+        sid = c.post("/api/session", json={"scenario": "smalltalk"}).json()["session_id"]
+        with sqlite3.connect(log.parent / "test.db") as db:
+            db.execute("UPDATE sessions SET offered_chunks='not json' WHERE id=?", (sid,))
+        if c.post(f"/api/session/{sid}/end").status_code != 200:
+            failures.append("ending a session with broken offered_chunks failed")
+        rep = c.get(f"/api/session/{sid}/report").json()
+        for _ in range(20):
+            if not rep["pending"]:
+                break
+            time.sleep(0.5)
+            rep = c.get(f"/api/session/{sid}/report").json()
+        if rep != {"ready": False, "pending": False}:
+            failures.append(f"a failed metrics write left the session pending: {rep}")
     print("ollama-down checks:", "ok" if not failures else failures)
     return failures
 

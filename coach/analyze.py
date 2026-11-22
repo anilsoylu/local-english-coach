@@ -202,12 +202,16 @@ def queue_analysis(ids: list[int]) -> None:
         _queued.update(ids)
     if ids:
         # The metrics need no model, so the report screen shows them at once (GET /report returns them while pending).
+        # A failed write only costs that early view: the job must still start, or the ids stay in _queued for good.
         db = memory.connect()
-        with db:
-            for sid in ids:
-                s, turns = _load(db, sid)
-                db.execute("UPDATE sessions SET metrics=? WHERE id=? AND analyzed_at IS NULL",
-                           (json.dumps(session_metrics(db, s, turns)[0]), sid))
+        for sid in ids:
+            try:
+                with db:
+                    s, turns = _load(db, sid)
+                    db.execute("UPDATE sessions SET metrics=? WHERE id=? AND analyzed_at IS NULL",
+                               (json.dumps(session_metrics(db, s, turns)[0]), sid))
+            except Exception:
+                log.exception("storing the early metrics failed for session %s", sid)
         db.close()
         threading.Thread(target=lambda: [analyze_session(i) for i in ids], daemon=True).start()
 

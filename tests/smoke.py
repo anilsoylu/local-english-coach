@@ -31,7 +31,8 @@ MESSAGES = [
 
 
 def ollama_down() -> list[str]:
-    """Ollama unreachable: the server still starts at once, and a failed reply leaves no dangling user turn."""
+    """Ollama unreachable: the server still starts at once, a failed reply leaves no dangling user turn, and a session
+    the learner never wrote in still ends and gets its metrics without a model."""
     failures = []
     t0 = time.perf_counter()
     with test_server(port=8798, OLLAMA_URL="http://127.0.0.1:9") as (base, _):
@@ -46,7 +47,51 @@ def ollama_down() -> list[str]:
             failures.append(f"no error marker with Ollama down: {reply!r}")
         if [t["role"] for t in c.get(f"/api/session/{sid}").json()["turns"]] != ["assistant"]:
             failures.append("failed turn was kept")
+        c.post(f"/api/session/{sid}/end")
+        if c.post(f"/api/session/{sid}/end").json() != {"ok": True}:
+            failures.append("ending an ended session failed")
+        if c.post(f"/api/session/{sid}/message", json={"text": "Hello."}).status_code != 409:
+            failures.append("ended session accepted a message")
+        rep = wait_report(c, sid, tries=20, wait=0.5)
+        if not rep["ready"] or rep["report"] != {} or rep["metrics"]["user_turns"] != 0:
+            failures.append(f"session without learner turns not analyzed in code: {rep}")
     print("ollama-down checks:", "ok" if not failures else failures)
+    return failures
+
+
+def wait_report(c: httpx.Client, sid: int, tries: int = 120, wait: float = 3) -> dict:
+    """Polls like the UI does: every 3 s for up to 6 minutes by default."""
+    rep = {"ready": False}
+    for _ in range(tries):
+        rep = c.get(f"/api/session/{sid}/report").json()
+        if rep["ready"]:
+            break
+        time.sleep(wait)
+    return rep
+
+
+def stale_session() -> list[str]:
+    """A session left open (tab closed without End) whose last turn is older than two hours: the next server start
+    ends it and analyzes it."""
+    failures = []
+    db_path = Path(tempfile.mkdtemp(prefix="coach-stale-db-")) / "stale.db"
+    db = sqlite3.connect(db_path)
+    db.executescript(memory.SCHEMA)
+    db.execute("INSERT INTO profile(user_id, name, level, about, native_language) VALUES ('test', '', 'A2', '', 'en')")
+    db.execute("INSERT INTO sessions(id, user_id, scenario, model, prompt_version, system_prompt, started_at)"
+               " VALUES (1, 'test', 'smalltalk', 'm', 'v5', '', '2020-01-01T10:00:00')")
+    db.execute("INSERT INTO turns(session_id, role, content, created_at) VALUES (1, 'assistant', 'Hi', '2020-01-01T10:00:00')")
+    db.commit()
+    db.close()
+    with test_server(port=8796, OLLAMA_URL="http://127.0.0.1:9", COACH_DB=str(db_path)) as (base, _):
+        c = httpx.Client(base_url=base, timeout=30)
+        if not c.get("/api/session/1").json()["ended"]:
+            failures.append("stale session not ended on start")
+        metrics = {"user_turns": 0, "avg_words": 0, "long_turn_pct": 0, "median_response_s": None, "native_turns": 0,
+                   "mixed_turns": 0, "help_count": 0, "chunks_offered": 0, "chunks_used": []}
+        if (rep := wait_report(c, 1, tries=20, wait=0.5)) != {"ready": True, "metrics": metrics, "report": {}}:
+            failures.append(f"stale session not analyzed on start: {rep}")
+    print("stale-session checks:", "ok" if not failures else failures)
     return failures
 
 
@@ -180,12 +225,7 @@ def main() -> int:
         mf = c.get("/manifest.webmanifest")
         if mf.status_code != 200 or "manifest+json" not in mf.headers["content-type"]:
             failures.append(f"manifest not served: {mf.status_code} {mf.headers.get('content-type')}")
-        rep = {"ready": False}
-        for _ in range(120):
-            rep = c.get(f"/api/session/{sid}/report").json()
-            if rep["ready"]:
-                break
-            time.sleep(3)
+        rep = wait_report(c, sid)
         print(json.dumps(rep, ensure_ascii=False, indent=1))
         if not rep["ready"]:
             failures.append("report not ready after 6 minutes")
@@ -206,6 +246,7 @@ def main() -> int:
             failures.append("server log has a traceback")
     failures += old_database()
     failures += ollama_down()
+    failures += stale_session()
     print("\nFAIL:\n- " + "\n- ".join(failures) if failures else "\nPASS")
     return 1 if failures else 0
 

@@ -46,4 +46,7 @@ def pick(value: str | dict, code: str) -> str:
 def speaker(code: str) -> str:
     """How prompts describe the learner: "a Turkish speaker", or "an English learner" when the native language is
     English or not chosen."""
-    return f"a {english_name(code)} speaker" if resolve(code) != DEFAULT else "an English learner"
+    if resolve(code) == DEFAULT:
+        return "an English learner"
+    name = english_name(code)
+    return f"{'an' if name[0] in 'AEIOU' else 'a'} {name} speaker"

@@ -102,7 +102,8 @@ def spanish_turn(c: httpx.Client, db: Path) -> list[str]:
 
 def old_database() -> list[str]:
     """A database from before native languages: the learner keeps Turkish, Turkish turns become native, and stored
-    reports come back with the new key names."""
+    reports come back with the new key names. A migration that fails partway (a report with invalid JSON) leaves the
+    database untouched, so the next start migrates it fully."""
     failures = []
     db_path = Path(tempfile.mkdtemp(prefix="coach-old-db-")) / "old.db"
     db = sqlite3.connect(db_path)
@@ -112,8 +113,20 @@ def old_database() -> list[str]:
     db.execute("INSERT INTO profile(user_id, name, level, about) VALUES ('test', '', 'A2', '')")
     db.execute("INSERT INTO sessions(id, user_id, scenario, model, prompt_version, system_prompt, started_at, ended_at,"
                " analyzed_at, metrics, report) VALUES (1, 'test', 'smalltalk', 'm', 'v3', '', 'x', 'x', 'x', ?, ?)",
-               (json.dumps({"turkish_turns": 1}), json.dumps(old_report)))
+               (json.dumps({"turkish_turns": 1}), "{not json"))
     db.execute("INSERT INTO turns(session_id, role, content, lang, created_at) VALUES (1, 'user', 'Merhaba', 'tr', 'x')")
+    db.commit()
+    db.row_factory = sqlite3.Row
+    try:
+        memory._migrate(db)
+        failures.append("migration did not fail on an invalid report")
+    except json.JSONDecodeError:
+        pass
+    if any(c["name"] == "native_language" for c in db.execute("PRAGMA table_info(profile)")):
+        failures.append("failed migration left the native_language column behind")
+    if db.execute("SELECT lang FROM turns").fetchone()["lang"] != "tr":
+        failures.append("failed migration changed turns")
+    db.execute("UPDATE sessions SET report=? WHERE id=1", (json.dumps(old_report),))
     db.commit()
     db.close()
     with test_server(port=8797, OLLAMA_URL="http://127.0.0.1:9", COACH_DB=str(db_path)) as (base, _):

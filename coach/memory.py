@@ -97,6 +97,9 @@ def _migrate(db: sqlite3.Connection) -> None:
         return [rename(v) for v in obj] if isinstance(obj, list) else obj
 
     with db:
+        # Legacy isolation mode does not open a transaction before DDL, so the ALTER would commit on its own and a
+        # failed step after it would leave a half-migrated database that the column check above never retries.
+        db.execute("BEGIN")
         db.execute("ALTER TABLE profile ADD COLUMN native_language TEXT NOT NULL DEFAULT ''")
         db.execute("UPDATE profile SET native_language='tr'")
         db.execute("UPDATE turns SET lang='native' WHERE lang='tr'")

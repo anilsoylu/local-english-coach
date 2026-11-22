@@ -239,8 +239,7 @@ def other_lines(messages: list[tuple[str, str]], me: str) -> list[str]:
 def import_chat(chat: Chat, me: str) -> dict:
     """Run both analyses and store the results. Returns counts only."""
     db = memory.connect()
-    prof = memory.get_profile(db, config.USER_ID, {"name": config.LEARNER_NAME, "level": config.LEARNER_LEVEL,
-                                                   "about": config.LEARNER_ABOUT})
+    prof = memory.get_profile(db, config.USER_ID)
     native = prof["native_language"]
     _, messages = chat.read()
     mine, theirs = learner_lines(messages, me, native), other_lines(messages, me)

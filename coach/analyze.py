@@ -218,7 +218,7 @@ def _analyze(sid: int) -> None:
                        (memory.now(), json.dumps(metrics), json.dumps({}), sid))
         return
 
-    prof = memory.get_profile(db, s["user_id"], {})
+    prof = memory.get_profile(db, s["user_id"])
     known = [r["phrase"] for r in db.execute("SELECT phrase FROM chunks WHERE user_id=?", (s["user_id"],))]
     log.info("analyzing session %s with %s (%d turns)", sid, ANALYSIS_MODEL, len(turns))
     rep = call_model(analysis_prompt(turns, prof["native_language"], prof["name"], prof["level"],

@@ -69,7 +69,7 @@ def parsing() -> list[str]:
 def full_import() -> list[str]:
     failures = []
     db = memory.connect()  # the learner picked Turkish in the UI
-    memory.get_profile(db, "test", {})
+    memory.get_profile(db, "test")
     with db:
         db.execute("UPDATE profile SET native_language=? WHERE user_id='test'", (NATIVE,))
     run = subprocess.run([sys.executable, "-m", "coach.chats", "import", "1000000000000001"], cwd=ROOT, env=ENV,

@@ -11,7 +11,7 @@ from functools import cache
 from lingua import IsoCode639_1, Language, LanguageDetectorBuilder
 
 from coach import languages
-from coach.config import DB_PATH
+from coach.config import DB_PATH, LEARNER_ABOUT, LEARNER_LEVEL, LEARNER_NAME
 
 # Leitner box -> days until next review
 BOX_DAYS = {1: 1, 2: 2, 3: 4, 4: 8, 5: 16, 6: 32}
@@ -155,19 +155,16 @@ def is_help(text: str) -> bool:
     return bool(HELP.search(text))
 
 
-def get_profile(db: sqlite3.Connection, user_id: str, defaults: dict) -> dict:
-    """name/about always follow config.yaml; level, recurring errors and summary are learned; the native language is
-    picked in the UI ('' until then)."""
+def get_profile(db: sqlite3.Connection, user_id: str) -> dict:
+    """Creates the row on first use. name/about always follow config.yaml; level starts there and is then learned,
+    like recurring errors and summary; the native language is picked in the UI ('' until then)."""
     row = db.execute("SELECT * FROM profile WHERE user_id=?", (user_id,)).fetchone()
     if row is None:
-        db.execute(
-            "INSERT INTO profile(user_id, name, level, about) VALUES (?,?,?,?)",
-            (user_id, defaults.get("name", ""), defaults.get("level", "A2"), defaults.get("about", "")),
-        )
+        db.execute("INSERT INTO profile(user_id, name, level, about) VALUES (?,?,?,?)",
+                   (user_id, LEARNER_NAME, LEARNER_LEVEL, LEARNER_ABOUT))
         db.commit()
-    elif "name" in defaults and (row["name"], row["about"]) != (defaults["name"], defaults["about"]):
-        db.execute("UPDATE profile SET name=?, about=? WHERE user_id=?",
-                   (defaults["name"], defaults["about"], user_id))
+    elif (row["name"], row["about"]) != (LEARNER_NAME, LEARNER_ABOUT):
+        db.execute("UPDATE profile SET name=?, about=? WHERE user_id=?", (LEARNER_NAME, LEARNER_ABOUT, user_id))
         db.commit()
     row = db.execute("SELECT * FROM profile WHERE user_id=?", (user_id,)).fetchone()
     p = dict(row)

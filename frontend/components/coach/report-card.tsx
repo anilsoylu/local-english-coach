@@ -2,7 +2,10 @@
 
 import { motion, useReducedMotion } from "motion/react";
 import { ThinkingShimmer } from "@/components/agents/loading-states/thinking-shimmer";
+import { ErrorNote } from "@/components/coach/pick-list";
+import { Button } from "@/components/ui/button";
 import { useMessages } from "@/lib/i18n";
+import { COARSE_BUTTON } from "@/lib/touch";
 import type { ReportState } from "@/lib/use-coach";
 
 const DEFAULTS = {
@@ -19,6 +22,8 @@ const DEFAULTS = {
   natural: "More natural wording",
   newChunks: "New phrases",
   tooShort: "The session was too short to analyze.",
+  missing: "This session has no report yet.",
+  generate: "Generate report",
 };
 
 function Stat({
@@ -54,7 +59,14 @@ function Section({
   );
 }
 
-export function ReportCard({ state }: { state: ReportState }) {
+interface ReportCardProps {
+  state: ReportState;
+  /** "Generate report", shown while the report is missing. */
+  onGenerate: () => void;
+  error: string | null;
+}
+
+export function ReportCard({ state, onGenerate, error }: ReportCardProps) {
   const reduce = useReducedMotion();
   const t = useMessages("reportCard", DEFAULTS);
   return (
@@ -64,7 +76,7 @@ export function ReportCard({ state }: { state: ReportState }) {
       initial={reduce ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-      className="mt-6 flex flex-col gap-6 rounded-2xl border border-border bg-card p-5"
+      className="flex flex-col gap-6 rounded-2xl border border-border bg-card p-5"
     >
       <h2 className="text-base font-semibold">{t("title")}</h2>
       {state.status === "waiting" && (
@@ -73,6 +85,20 @@ export function ReportCard({ state }: { state: ReportState }) {
       {state.status === "timeout" && (
         <p className="text-sm text-muted-foreground">{t("timeout")}</p>
       )}
+      {state.status === "missing" && (
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-sm text-muted-foreground">{t("missing")}</p>
+          <Button
+            size="sm"
+            onClick={onGenerate}
+            data-testid="generate"
+            className={COARSE_BUTTON}
+          >
+            {t("generate")}
+          </Button>
+        </div>
+      )}
+      {error && <ErrorNote>{error}</ErrorNote>}
       {state.status === "ready" && (
         <ReportBody metrics={state.metrics} report={state.report} />
       )}

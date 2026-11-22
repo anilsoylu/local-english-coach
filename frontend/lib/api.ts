@@ -34,6 +34,21 @@ export interface SessionState {
   turns: Turn[];
 }
 
+/** One row of the home screen's past sessions. */
+export interface PastSession {
+  id: number;
+  scenario: string;
+  /** In the native language, like `Scenario.title`. */
+  title: string;
+  started_at: string;
+  /** Learner messages. */
+  messages: number;
+  /** Corrections in the report; null until there is a report. */
+  errors: number | null;
+  /** `pending`: queued or being analyzed. `none`: never ended, or its analysis failed. */
+  report: "ready" | "pending" | "none";
+}
+
 export interface Metrics {
   user_turns?: number;
   avg_words?: number;
@@ -55,9 +70,20 @@ export interface Report {
 /** Must match ERROR_MARK in coach/server.py: the server drops the turn and sends this instead of a reply. */
 export const ERROR_MARK = "\n[error: ";
 
+/** A response outside 2xx. Network failures stay plain `TypeError`s, so callers can tell the two apart. */
+export class HttpError extends Error {
+  constructor(readonly status: number) {
+    super(`HTTP ${status}`);
+  }
+}
+
+function ok(res: Response): Response {
+  if (!res.ok) throw new HttpError(res.status);
+  return res;
+}
+
 async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json() as Promise<T>;
+  return ok(res).json() as Promise<T>;
 }
 
 const send = (method: string, path: string, body?: unknown) =>
@@ -78,11 +104,22 @@ export const api = {
     post("api/session", { scenario }).then(
       json<{ session_id: number; opening: string; warmup: WarmupChunk[] }>,
     ),
+  sessions: (offset: number) =>
+    fetch(`api/sessions?offset=${offset}`).then(
+      json<{ sessions: PastSession[]; more: boolean }>,
+    ),
   session: (id: number) => fetch(`api/session/${id}`).then(json<SessionState>),
-  end: (id: number) => post(`api/session/${id}/end`),
+  /** Ends the session if needed and queues its report; safe to repeat. */
+  end: (id: number) => post(`api/session/${id}/end`).then(ok),
+  /** `pending` is false when nothing is preparing a report (never ended, or the analysis failed). */
   report: (id: number) =>
     fetch(`api/session/${id}/report`).then(
-      json<{ ready: boolean; metrics?: Metrics; report?: Report }>,
+      json<{
+        ready: boolean;
+        pending?: boolean;
+        metrics?: Metrics;
+        report?: Report;
+      }>,
     ),
   warm: () => post("api/warm").catch(() => undefined),
 
@@ -97,8 +134,9 @@ export const api = {
       text,
       response_ms: responseMs,
     });
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
-    const reader = res.body.getReader();
+    const body = ok(res).body;
+    if (!body) throw new Error("no body");
+    const reader = body.getReader();
     const decoder = new TextDecoder();
     let reply = "";
     for (;;) {

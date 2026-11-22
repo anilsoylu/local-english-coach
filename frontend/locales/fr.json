@@ -10,12 +10,18 @@
     "message": "Ton message",
     "send": "Envoyer",
     "wait": "Attends",
-    "stuck": "Je bloque"
+    "stuck": "Je bloque",
+    "home": "Accueil",
+    "showConversation": "Afficher la conversation",
+    "hideConversation": "Masquer la conversation"
   },
   "session": {
     "unreachable": "Impossible de joindre le serveur.",
     "startFailed": "Impossible de démarrer la session. Touche de nouveau une situation.",
-    "sendFailed": "Erreur de connexion. Ton message est toujours dans la zone de saisie. Renvoie-le."
+    "sendFailed": "Erreur de connexion. Ton message est toujours dans la zone de saisie. Renvoie-le.",
+    "endFailed": "Impossible de terminer la session. Vérifie ta connexion et appuie de nouveau sur Terminer.",
+    "openFailed": "Impossible d'ouvrir cette session. Réessaie.",
+    "generateFailed": "Impossible de générer le rapport. Vérifie ta connexion et réessaie."
   },
   "scenarioPicker": {
     "title": "De quoi on parle aujourd'hui ?",
@@ -45,6 +51,17 @@
     "corrections": "Corrections",
     "natural": "Formulations plus naturelles",
     "newChunks": "Nouvelles expressions",
-    "tooShort": "La session était trop courte pour être analysée."
+    "tooShort": "La session était trop courte pour être analysée.",
+    "missing": "Cette session n'a pas encore de rapport.",
+    "generate": "Générer le rapport"
+  },
+  "sessionHistory": {
+    "title": "Sessions passées",
+    "messages": "Messages : {count}",
+    "errors": "Corrections : {count}",
+    "preparing": "Rapport en cours de préparation",
+    "generate": "Générer le rapport",
+    "more": "Afficher plus",
+    "loadFailed": "Impossible de charger tes sessions passées."
   }
 }

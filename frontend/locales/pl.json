@@ -10,12 +10,18 @@
     "message": "Twoja wiadomość",
     "send": "Wyślij",
     "wait": "Czekaj",
-    "stuck": "Podpowiedz"
+    "stuck": "Podpowiedz",
+    "home": "Start",
+    "showConversation": "Pokaż rozmowę",
+    "hideConversation": "Ukryj rozmowę"
   },
   "session": {
     "unreachable": "Nie udało się połączyć z serwerem.",
     "startFailed": "Nie udało się rozpocząć sesji. Dotknij sytuacji jeszcze raz.",
-    "sendFailed": "Błąd połączenia. Twoja wiadomość jest w polu tekstowym. Wyślij ją ponownie."
+    "sendFailed": "Błąd połączenia. Twoja wiadomość jest w polu tekstowym. Wyślij ją ponownie.",
+    "endFailed": "Nie udało się zakończyć sesji. Sprawdź połączenie i dotknij Zakończ ponownie.",
+    "openFailed": "Nie udało się otworzyć tej sesji. Spróbuj ponownie.",
+    "generateFailed": "Nie udało się wygenerować raportu. Sprawdź połączenie i spróbuj ponownie."
   },
   "scenarioPicker": {
     "title": "O czym dziś porozmawiamy?",
@@ -45,6 +51,17 @@
     "corrections": "Poprawki",
     "natural": "Bardziej naturalnie",
     "newChunks": "Nowe zwroty",
-    "tooShort": "Sesja była za krótka, by ją przeanalizować."
+    "tooShort": "Sesja była za krótka, by ją przeanalizować.",
+    "missing": "Ta sesja nie ma jeszcze raportu.",
+    "generate": "Wygeneruj raport"
+  },
+  "sessionHistory": {
+    "title": "Poprzednie sesje",
+    "messages": "Wiadomości: {count}",
+    "errors": "Poprawki: {count}",
+    "preparing": "Raport w przygotowaniu",
+    "generate": "Wygeneruj raport",
+    "more": "Pokaż więcej",
+    "loadFailed": "Nie udało się wczytać poprzednich sesji."
   }
 }

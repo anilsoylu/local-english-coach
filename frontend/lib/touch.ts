@@ -1,5 +1,9 @@
 export const TOUCH_GESTURE_CLASS = "select-none [-webkit-touch-callout:none]";
 
+/** For `Button size="sm"`: phones need 40px targets; the desktop keeps the compact size. */
+export const COARSE_BUTTON =
+  "pointer-coarse:h-10 pointer-coarse:px-3.5 pointer-coarse:text-sm";
+
 /**
  * The same opt-out for a gesture surface that wraps content the consumer owns:
  * a scroller, a context-menu trigger, a sheet header, a list row. Selection is

@@ -10,12 +10,18 @@
     "message": "Deine Nachricht",
     "send": "Senden",
     "wait": "Warten",
-    "stuck": "Ich hänge fest"
+    "stuck": "Ich hänge fest",
+    "home": "Start",
+    "showConversation": "Unterhaltung anzeigen",
+    "hideConversation": "Unterhaltung ausblenden"
   },
   "session": {
     "unreachable": "Der Server ist nicht erreichbar.",
     "startFailed": "Die Sitzung konnte nicht starten. Tippe noch mal auf eine Situation.",
-    "sendFailed": "Verbindungsfehler. Deine Nachricht steht noch im Feld. Sende sie noch mal."
+    "sendFailed": "Verbindungsfehler. Deine Nachricht steht noch im Feld. Sende sie noch mal.",
+    "endFailed": "Die Sitzung konnte nicht beendet werden. Prüfe deine Verbindung und tipp noch mal auf Beenden.",
+    "openFailed": "Diese Sitzung konnte nicht geöffnet werden. Versuch es noch mal.",
+    "generateFailed": "Der Bericht konnte nicht erstellt werden. Prüfe deine Verbindung und versuch es noch mal."
   },
   "scenarioPicker": {
     "title": "Worüber sprechen wir heute?",
@@ -45,6 +51,17 @@
     "corrections": "Korrekturen",
     "natural": "Natürlicher formuliert",
     "newChunks": "Neue Wendungen",
-    "tooShort": "Die Sitzung war zu kurz für eine Analyse."
+    "tooShort": "Die Sitzung war zu kurz für eine Analyse.",
+    "missing": "Diese Sitzung hat noch keinen Bericht.",
+    "generate": "Bericht erstellen"
+  },
+  "sessionHistory": {
+    "title": "Frühere Sitzungen",
+    "messages": "Nachrichten: {count}",
+    "errors": "Korrekturen: {count}",
+    "preparing": "Bericht wird erstellt",
+    "generate": "Bericht erstellen",
+    "more": "Mehr anzeigen",
+    "loadFailed": "Deine früheren Sitzungen konnten nicht geladen werden."
   }
 }

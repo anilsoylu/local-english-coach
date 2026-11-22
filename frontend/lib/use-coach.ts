@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   api,
+  HttpError,
   type Metrics,
   type Report,
   type Scenario,
+  type SessionState,
   type WarmupChunk,
 } from "@/lib/api";
 import { useMessages } from "@/lib/i18n";
@@ -20,21 +22,26 @@ export interface ChatMessage {
   error?: boolean;
 }
 
+/** `missing`: nothing is preparing a report (the session was never ended, or its analysis failed). */
 export type ReportState =
   | { status: "waiting" }
   | { status: "ready"; metrics: Metrics; report: Report }
+  | { status: "missing" }
   | { status: "timeout" };
 
 /** The session lifecycle. Transitions are in `sessionReducer`; docs/state-machines.md has the table. */
 export type Session =
-  | { phase: "idle"; starting: boolean }
+  /** `starting` while a new session or a past one (`opening`) loads; the home screen is disabled meanwhile. */
+  | { phase: "idle"; starting: boolean; opening: number | null }
   | { phase: "chat"; sid: number; warmup: WarmupChunk[]; busy: boolean }
   | { phase: "report"; sid: number; report: ReportState };
 
 export type SessionEvent =
   | { type: "start" }
+  | { type: "open"; sid: number }
   | { type: "startFailed" }
   | { type: "started"; sid: number; warmup: WarmupChunk[] }
+  | { type: "opened"; sid: number }
   | { type: "restored"; sid: number; ended: boolean }
   | { type: "busy"; busy: boolean }
   | { type: "ended"; sid: number }
@@ -43,9 +50,10 @@ export type SessionEvent =
       sid: number;
       report: Exclude<ReportState, { status: "waiting" }>;
     }
+  | { type: "generate"; sid: number }
   | { type: "reset" };
 
-export const IDLE: Session = { phase: "idle", starting: false };
+export const IDLE: Session = { phase: "idle", starting: false, opening: null };
 
 const awaitReport = (sid: number): Session => ({
   phase: "report",
@@ -57,12 +65,22 @@ const awaitReport = (sid: number): Session => ({
 export function sessionReducer(s: Session, e: SessionEvent): Session {
   switch (e.type) {
     case "start":
-      return s.phase === "idle" ? { phase: "idle", starting: true } : s;
+      return s.phase === "idle" && !s.starting
+        ? { phase: "idle", starting: true, opening: null }
+        : s;
+    case "open":
+      return s.phase === "idle" && !s.starting
+        ? { phase: "idle", starting: true, opening: e.sid }
+        : s;
     case "startFailed":
       return s.phase === "idle" ? IDLE : s;
     case "started":
       return { phase: "chat", sid: e.sid, warmup: e.warmup, busy: false };
+    case "opened":
+      return s.phase === "idle" && s.opening === e.sid ? awaitReport(e.sid) : s;
+    // Only onto an untouched home screen: a tap during the first load wins over the stored session.
     case "restored":
+      if (s.phase !== "idle" || s.starting) return s;
       return e.ended
         ? awaitReport(e.sid)
         : { phase: "chat", sid: e.sid, warmup: [], busy: false };
@@ -75,6 +93,12 @@ export function sessionReducer(s: Session, e: SessionEvent): Session {
         s.sid === e.sid &&
         s.report.status === "waiting"
         ? { ...s, report: e.report }
+        : s;
+    case "generate":
+      return s.phase === "report" &&
+        s.sid === e.sid &&
+        s.report.status === "missing"
+        ? awaitReport(e.sid)
         : s;
     case "reset":
       return IDLE;
@@ -94,7 +118,17 @@ const DEFAULTS = {
   unreachable: "Could not reach the server.",
   startFailed: "Could not start the session. Tap a situation again.",
   sendFailed: "Connection error, your message is in the box. Send it again.",
+  endFailed:
+    "Could not end the session. Check your connection and tap End again.",
+  openFailed: "Could not open that session. Try again.",
+  generateFailed:
+    "Could not ask for the report. Check your connection and try again.",
 };
+
+const toMessages = (s: SessionState) =>
+  s.turns.map((t) =>
+    msg({ from: t.role, content: t.content, help: Boolean(t.is_help) }),
+  );
 
 /** Sent by the "I'm stuck" button; the server counts it as a help turn. */
 export const HELP_TEXT = "help";
@@ -109,6 +143,8 @@ export function useCoach() {
   const [error, setError] = useState<string | null>(null);
   // When the coach finished its last reply: the learner's thinking time is measured from here.
   const readyAt = useRef<number | null>(null);
+  // Set by the first start or open, so a stored session that loads after the tap doesn't replace its messages.
+  const acted = useRef(false);
 
   const setScenario = useCallback((id: string) => {
     setScenarioState(id);
@@ -133,15 +169,23 @@ export function useCoach() {
       );
       const saved = Number(store.get("sid"));
       if (!saved) return;
-      const s = await api.session(saved).catch(() => null);
-      if (cancelled) return;
-      if (!s) return store.set("sid", null);
+      let s: SessionState;
+      try {
+        s = await api.session(saved);
+      } catch (e) {
+        // Forget the session only when the server doesn't know it; an unreachable server keeps it for the next load.
+        if (
+          !cancelled &&
+          !acted.current &&
+          e instanceof HttpError &&
+          e.status === 404
+        )
+          store.set("sid", null);
+        return;
+      }
+      if (cancelled || acted.current) return;
       setScenarioState(s.scenario);
-      setMessages(
-        s.turns.map((t) =>
-          msg({ from: t.role, content: t.content, help: Boolean(t.is_help) }),
-        ),
-      );
+      setMessages(toMessages(s));
       if (!s.ended) readyAt.current = performance.now();
       dispatch({ type: "restored", sid: saved, ended: s.ended });
     })();
@@ -183,6 +227,10 @@ export function useCoach() {
           });
           return;
         }
+        if (r && !r.pending) {
+          dispatch({ type: "settled", sid, report: { status: "missing" } });
+          return;
+        }
         await new Promise((res) => setTimeout(res, REPORT_POLL_MS));
         if (cancelled) return;
       }
@@ -196,6 +244,7 @@ export function useCoach() {
   const start = useCallback(
     async (id: string = scenario) => {
       if (!id) return;
+      acted.current = true;
       dispatch({ type: "start" });
       setError(null);
       try {
@@ -241,11 +290,16 @@ export function useCoach() {
           update({ content: soFar }),
         );
         update({ content: full, streaming: false });
-      } catch {
+      } catch (e) {
         // The server dropped this turn; take both bubbles out and give the text back for a retry.
         setMessages((m) =>
           m.filter((x) => x.id !== mine.id && x.id !== reply.id),
         );
+        // 409: the server already ended the session (closed as stale while the laptop slept), so a retry can't work.
+        if (e instanceof HttpError && e.status === 409) {
+          dispatch({ type: "ended", sid: chatSid });
+          return;
+        }
         if (!isHelp) setDraft(text);
         setMessages((m) => [
           ...m,
@@ -263,18 +317,71 @@ export function useCoach() {
     [busy, chatSid, t],
   );
 
+  // Stays in the chat when the request fails: the session is still open on the server.
   const end = useCallback(async () => {
     if (chatSid === null) return;
-    await api.end(chatSid).catch(() => undefined);
-    dispatch({ type: "ended", sid: chatSid });
-  }, [chatSid]);
+    try {
+      await api.end(chatSid);
+      dispatch({ type: "ended", sid: chatSid });
+    } catch {
+      setMessages((m) => [
+        ...m,
+        msg({ from: "assistant", content: t("endFailed"), error: true }),
+      ]);
+    }
+  }, [chatSid, t]);
+
+  /** A past session from the home screen, on the report screen. With `generate`, its report is asked for first.
+   * Not stored as `sid`: a reload goes back home. */
+  const open = useCallback(
+    async (sid: number, generate = false) => {
+      acted.current = true;
+      dispatch({ type: "open", sid });
+      setError(null);
+      try {
+        if (generate) await api.end(sid);
+        const s = await api.session(sid);
+        setScenarioState(s.scenario);
+        setMessages(toMessages(s));
+        dispatch({ type: "opened", sid });
+      } catch {
+        setError(t(generate ? "generateFailed" : "openFailed"));
+        dispatch({ type: "startFailed" });
+      }
+    },
+    [t],
+  );
+
+  const missingSid =
+    session.phase === "report" && session.report.status === "missing"
+      ? session.sid
+      : null;
+
+  /** "Generate report" on the report screen. */
+  const generate = useCallback(async () => {
+    if (missingSid === null) return;
+    setError(null);
+    try {
+      await api.end(missingSid);
+      dispatch({ type: "generate", sid: missingSid });
+    } catch {
+      setError(t("generateFailed"));
+    }
+  }, [missingSid, t]);
 
   // The session id stays stored until here, so a reload on the report screen shows the report again.
   const reset = useCallback(() => {
     store.set("sid", null);
     setMessages([]);
+    setError(null);
     dispatch({ type: "reset" });
   }, []);
+
+  /** "New session" on the report screen: the same scenario again, right away. */
+  const restart = useCallback(() => {
+    reset();
+    void start();
+  }, [reset, start]);
 
   return {
     scenarios,
@@ -288,6 +395,9 @@ export function useCoach() {
     start,
     send,
     end,
+    open,
+    generate,
     reset,
+    restart,
   };
 }

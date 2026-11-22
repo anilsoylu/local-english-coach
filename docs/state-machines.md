@@ -9,51 +9,77 @@ Owner: `sessionReducer` and the `Session` type in `frontend/lib/use-coach.ts`. `
 
 | State | Data | Screen |
 |---|---|---|
-| `idle` | `starting` while `POST /api/session` runs | scenario picker (disabled while starting) |
+| `idle` | `starting` while `POST /api/session` or a past session loads; `opening` is that past session | home: scenario picker and past sessions (disabled while starting) |
 | `chat` | `sid`, `warmup`, `busy` while a reply streams | messages, warm-up card, input, End |
-| `report` | `sid`, `report`: `waiting`, `ready` or `timeout` | messages, report card, New session |
+| `report` | `sid`, `report`: `waiting`, `ready`, `missing` or `timeout` | report screen: report card, "Show conversation" (folded), Home, New session |
+
+`missing` means nothing is preparing a report: the session was never ended, or its analysis failed. The report card
+then offers "Generate report".
 
 | Event | From | To | Sent by |
 |---|---|---|---|
-| `start` | `idle` | `idle`, starting | `start()` |
-| `startFailed` | `idle` | `idle` | `start()` when the request fails (error shown on the picker) |
+| `start` | `idle`, not starting | `idle`, starting | `start()`: a scenario tap, or New session right after `reset` |
+| `open` | `idle`, not starting | `idle`, starting, `opening` | `open()`: a past session or its "Generate report" on the home screen |
+| `startFailed` | `idle` | `idle` | `start()` or `open()` when a request fails (error shown on the home screen) |
 | `started` | any | `chat` with the warm-up | `start()` when the session exists |
-| `restored` | any | `chat` (no warm-up) or `report` waiting | first load, from the stored `sid` |
+| `opened` | `idle` opening the same `sid` | `report` waiting | `open()` once the session's turns are loaded (after `POST /end` for "Generate report") |
+| `restored` | `idle`, not starting | `chat` (no warm-up) or `report` waiting | first load, from the stored `sid` |
 | `busy` | `chat` | `chat` | `send()` before and after the streamed reply |
-| `ended` | `chat` with the same `sid` | `report` waiting | `end()` after `POST /end`, failed or not |
-| `settled` | `report` waiting, same `sid` | `report` ready or timeout | the polling effect |
-| `reset` | any | `idle` | New session |
+| `ended` | `chat` with the same `sid` | `report` waiting | `end()` after `POST /end` succeeds; `send()` on a 409 (the server already ended it) |
+| `settled` | `report` waiting, same `sid` | `report` ready, missing or timeout | the polling effect |
+| `generate` | `report` missing, same `sid` | `report` waiting | "Generate report" on the report card, after `POST /end` succeeds |
+| `reset` | any | `idle` | Home (the button or the app name), and New session before its `start` |
 
 Events from any other state are ignored. Invariants:
 
-- A `sid` exists only in `chat` and `report`, and `localStorage["sid"]` holds it in both. It is written when a
-  session starts and cleared on `reset` or when the server no longer knows it, so a reload lands in the same state.
+- `localStorage["sid"]` holds the session a reload should bring back: written when a session starts, cleared on
+  `reset` or when `GET /session` answers 404. An unreachable server leaves it, so the session resumes once the
+  network returns. A past session opened from home is not stored; a reload goes home.
+- The first load is superseded by the learner: once `start()` or `open()` runs, the stored session that arrives
+  afterwards is dropped (its messages too), and the reducer refuses `restored` unless the home screen is untouched.
 - Report polling runs only in `report` waiting: an effect keyed on that `sid` polls `GET /report` every 3 s, at most
-  120 times, then sends `timeout`. Leaving the state cancels it. `timeout` is final until a reload.
+  120 times. `ready` settles as ready; `ready: false` with `pending: false` settles as missing; the 120th poll as
+  timeout. Leaving the state cancels it. `timeout` is final until a reload.
 - Ending takes two taps: `EndButton` in `coach-app.tsx` arms on the first tap and disarms after 3 s. End stays
-  disabled while a reply streams and before the learner has written anything.
-- Messages live outside the machine (they stream in piece by piece). `start` replaces them, `restored` loads them
-  from the server, `reset` clears them.
+  disabled while a reply streams and before the learner has written anything. A failed `POST /end` leaves the chat
+  as it was and adds an error message; End can be tapped again.
+- The app name in the header goes home on the home and report screens. In the chat it is plain text: leaving would
+  abandon the session, so End is the way out.
+- Messages live outside the machine (they stream in piece by piece). `start` replaces them, `restored` and `open`
+  load them from the server, `reset` clears them.
 
-Next steps fit as new events: opening a past report from the home screen is `restored` with `ended: true`, and
-showing the code metrics before the model's report is a `waiting` that carries metrics.
+Next step that fits as a new event: showing the code metrics before the model's report is a `waiting` that carries
+metrics.
 
 ## Session row on the server
 
-Owner: the `sessions` table (`coach/memory.py`), written by `coach/server.py` and `coach/analyze.py`.
+Owner: the `sessions` table (`coach/memory.py`), written by `coach/server.py` and `coach/analyze.py`. The
+in-process queue in `coach/analyze.py` (`queue_analysis`, `is_queued`) tracks which sessions have an analysis job.
 
-| State | Columns | API |
+| State | Columns, queue | API |
 |---|---|---|
-| active | `ended_at` null | `GET /session` `ended: false`; `POST /message` accepted |
-| ended | `ended_at` set, `analyzed_at` null | `ended: true`; `/message` 409; `/report` `ready: false` |
-| analyzed | `analyzed_at`, `metrics`, `report` set | `/report` `ready: true`; listed by `/api/progress` |
+| active | `ended_at` null | `GET /session` `ended: false`; `POST /message` accepted; listed with report `none` |
+| ended, analyzing | `ended_at` set, `analyzed_at` null, queued | `/message` 409; `/report` `ready: false, pending: true`; listed as `pending` |
+| ended, no report | `ended_at` set, `analyzed_at` null, not queued | `/report` `ready: false, pending: false`; listed as `none` |
+| analyzed | `analyzed_at`, `metrics`, `report` set | `/report` `ready: true`; listed as `ready`, and by `/api/progress` |
+
+`GET /api/sessions` lists only sessions with at least one learner turn, newest first, `limit` (1 to 50, default 10)
+from `offset`.
 
 | Transition | Where |
 |---|---|
-| active → ended | `POST /end` (only when still active, so repeating it is harmless), which queues the analysis |
-| active → ended | `retry_pending` at server start, when the last turn is older than `STALE_AFTER` (2 h) |
-| ended → analyzed | `_analyze`: under 2 learner turns it stores the metrics and `{}` as the report without a model call |
-| ended → ended | `analyze_session` logs a failed analysis; `retry_pending` tries again on the next start |
+| active → analyzing | `POST /end`: ends the session and queues the analysis |
+| active → analyzing | `retry_pending` at server start, when the last turn is older than `STALE_AFTER` (2 h) |
+| no report → analyzing | `POST /end` again ("Generate report"), or `retry_pending` at the next start |
+| analyzing → analyzed | `_analyze`: under 2 learner turns it stores the metrics and `{}` as the report without a model call |
+| analyzing → no report | the model call fails; `analyze_session` logs it and leaves the queue |
+
+`POST /end` is idempotent: on an analyzing or analyzed session it changes nothing, and on an unknown one it answers
+404. Two guards keep a session from being analyzed twice. `queue_analysis` skips a session that is already queued or
+running, so repeated End taps, "Generate report" and the startup retry add one job at most. `_analyze` runs under
+the `analysis_slot` lock and returns at once when `analyzed_at` is set, so a job queued just as the previous one
+finished does nothing. The Leitner reviews of the offered phrases are written in the same transaction as
+`analyzed_at`, so a failed analysis that is retried doesn't move them twice.
 
 `analysis_slot` runs one analysis at a time per process and loads the chat model again afterwards.
 `python -m coach.chats import` is a separate process, so it doesn't wait for a running session analysis.
@@ -66,17 +92,4 @@ the server profile wins when it differs; `applyGen` lets the newest of the two l
 
 ## Known invalid transitions
 
-Reachable today and left for their own fix, since fixing them changes behavior:
-
-1. **A tap during the first load starts a second session.** The picker is live as soon as the scenarios arrive,
-   while the stored `sid` is still being fetched. Tapping a scenario then starts a new session, and the `restored`
-   that follows switches the screen to the old one and loads its messages. Fix: accept `restored` only in `idle`
-   when not starting, and keep messages from being replaced after that.
-2. **A message to a session the server ended shows "Connection error".** `POST /message` answers 409 once
-   `retry_pending` closed a stale session (laptop asleep over a server restart), and `send()` treats that like a
-   network error, so every retry fails the same way. Fix: on 409, go to `report` waiting.
-3. **An unreachable server on reload forgets the session.** The first load clears the stored `sid` when
-   `GET /session` fails for any reason, not only 404, so the open session can't be resumed after the network returns.
-   Fix: clear it only on 404.
-4. **A failed `POST /end` waits six minutes for a report that never comes.** `end()` ignores the error and the
-   session stays active on the server. After the timeout, a reload goes back to the chat.
+None known. When one turns up, list it here with how to reach it and the fix, until it is fixed.

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { PickCard, PickScreen } from "@/components/coach/pick-list";
 import { ScenarioIcon } from "@/components/coach/scenario-icon";
 import type { Scenario } from "@/lib/api";
@@ -18,6 +19,8 @@ interface ScenarioPickerProps {
   disabled: boolean;
   error: string | null;
   onPick: (id: string) => void;
+  /** Below the scenarios: the past sessions. */
+  footer?: ReactNode;
 }
 
 /** Start screen: one tap picks a scenario and starts the session. */
@@ -27,6 +30,7 @@ export function ScenarioPicker({
   disabled,
   error,
   onPick,
+  footer,
 }: ScenarioPickerProps) {
   const t = useMessages("scenarioPicker", DEFAULTS);
   return (
@@ -36,6 +40,7 @@ export function ScenarioPicker({
       error={error}
       reloadLabel={t("reload")}
       empty={!scenarios.length}
+      footer={footer}
     >
       {scenarios.map((s, i) => (
         <PickCard

@@ -10,12 +10,18 @@
     "message": "Tu mensaje",
     "send": "Enviar",
     "wait": "Espera",
-    "stuck": "Ayúdame"
+    "stuck": "Ayúdame",
+    "home": "Inicio",
+    "showConversation": "Mostrar conversación",
+    "hideConversation": "Ocultar conversación"
   },
   "session": {
     "unreachable": "No se pudo conectar con el servidor.",
     "startFailed": "No se pudo empezar la sesión. Toca una situación otra vez.",
-    "sendFailed": "Error de conexión. Tu mensaje sigue escrito. Envíalo de nuevo."
+    "sendFailed": "Error de conexión. Tu mensaje sigue escrito. Envíalo de nuevo.",
+    "endFailed": "No se pudo terminar la sesión. Revisa tu conexión y toca Terminar otra vez.",
+    "openFailed": "No se pudo abrir esa sesión. Inténtalo de nuevo.",
+    "generateFailed": "No se pudo generar el informe. Revisa tu conexión e inténtalo de nuevo."
   },
   "scenarioPicker": {
     "title": "¿De qué hablamos hoy?",
@@ -45,6 +51,17 @@
     "corrections": "Correcciones",
     "natural": "Formas más naturales",
     "newChunks": "Frases nuevas",
-    "tooShort": "La sesión fue demasiado corta para analizarla."
+    "tooShort": "La sesión fue demasiado corta para analizarla.",
+    "missing": "Esta sesión todavía no tiene informe.",
+    "generate": "Generar informe"
+  },
+  "sessionHistory": {
+    "title": "Sesiones anteriores",
+    "messages": "Mensajes: {count}",
+    "errors": "Correcciones: {count}",
+    "preparing": "Informe en preparación",
+    "generate": "Generar informe",
+    "more": "Mostrar más",
+    "loadFailed": "No se pudieron cargar tus sesiones anteriores."
   }
 }

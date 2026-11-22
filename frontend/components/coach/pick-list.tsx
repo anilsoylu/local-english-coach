@@ -57,6 +57,18 @@ export function PickCard({
   );
 }
 
+/** An error the learner can act on, in the app's one alert style. */
+export function ErrorNote({ children }: { children: ReactNode }) {
+  return (
+    <p
+      role="alert"
+      className="w-full rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+    >
+      {children}
+    </p>
+  );
+}
+
 interface PickScreenProps {
   title: string;
   intro: ReactNode;
@@ -66,6 +78,8 @@ interface PickScreenProps {
   empty?: boolean;
   /** `PickCard`s. */
   children: ReactNode;
+  /** Below the cards, in the same column. */
+  footer?: ReactNode;
 }
 
 /** A start screen with one tap choices: heading, intro, error and the card grid. */
@@ -76,6 +90,7 @@ export function PickScreen({
   reloadLabel,
   empty = false,
   children,
+  footer,
 }: PickScreenProps) {
   return (
     <section className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-10">
@@ -87,12 +102,7 @@ export function PickScreen({
       </div>
       {error && (
         <div className="flex flex-col items-start gap-3">
-          <p
-            role="alert"
-            className="w-full rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-          >
-            {error}
-          </p>
+          <ErrorNote>{error}</ErrorNote>
           {empty && reloadLabel && (
             <Button
               variant="outline"
@@ -105,6 +115,7 @@ export function PickScreen({
         </div>
       )}
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</ul>
+      {footer}
     </section>
   );
 }

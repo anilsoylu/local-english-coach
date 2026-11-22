@@ -10,12 +10,18 @@
     "message": "Sua mensagem",
     "send": "Enviar",
     "wait": "Espere",
-    "stuck": "Travei"
+    "stuck": "Travei",
+    "home": "Início",
+    "showConversation": "Mostrar conversa",
+    "hideConversation": "Ocultar conversa"
   },
   "session": {
     "unreachable": "Não foi possível conectar ao servidor.",
     "startFailed": "Não foi possível iniciar a sessão. Toque em uma situação de novo.",
-    "sendFailed": "Erro de conexão. Sua mensagem continua no campo de texto. Envie de novo."
+    "sendFailed": "Erro de conexão. Sua mensagem continua no campo de texto. Envie de novo.",
+    "endFailed": "Não foi possível encerrar a sessão. Verifique sua conexão e toque em Encerrar de novo.",
+    "openFailed": "Não foi possível abrir essa sessão. Tente de novo.",
+    "generateFailed": "Não foi possível gerar o relatório. Verifique sua conexão e tente de novo."
   },
   "scenarioPicker": {
     "title": "Sobre o que vamos conversar hoje?",
@@ -45,6 +51,17 @@
     "corrections": "Correções",
     "natural": "Formas mais naturais",
     "newChunks": "Frases novas",
-    "tooShort": "A sessão foi curta demais para analisar."
+    "tooShort": "A sessão foi curta demais para analisar.",
+    "missing": "Esta sessão ainda não tem relatório.",
+    "generate": "Gerar relatório"
+  },
+  "sessionHistory": {
+    "title": "Sessões anteriores",
+    "messages": "Mensagens: {count}",
+    "errors": "Correções: {count}",
+    "preparing": "Relatório em preparação",
+    "generate": "Gerar relatório",
+    "more": "Mostrar mais",
+    "loadFailed": "Não foi possível carregar suas sessões anteriores."
   }
 }

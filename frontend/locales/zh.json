@@ -10,12 +10,18 @@
     "message": "你的消息",
     "send": "发送",
     "wait": "等待",
-    "stuck": "我卡住了"
+    "stuck": "我卡住了",
+    "home": "首页",
+    "showConversation": "显示对话",
+    "hideConversation": "隐藏对话"
   },
   "session": {
     "unreachable": "无法连接服务器。",
     "startFailed": "无法开始会话，请再点一次情境。",
-    "sendFailed": "连接出错，你的消息还在输入框里，请重新发送。"
+    "sendFailed": "连接出错，你的消息还在输入框里，请重新发送。",
+    "endFailed": "无法结束会话，请检查网络后再点一次“结束”。",
+    "openFailed": "无法打开该会话，请重试。",
+    "generateFailed": "无法生成报告，请检查网络后重试。"
   },
   "scenarioPicker": {
     "title": "今天聊点什么？",
@@ -45,6 +51,17 @@
     "corrections": "纠正",
     "natural": "更地道的说法",
     "newChunks": "新句型",
-    "tooShort": "会话太短，无法分析。"
+    "tooShort": "会话太短，无法分析。",
+    "missing": "这个会话还没有报告。",
+    "generate": "生成报告"
+  },
+  "sessionHistory": {
+    "title": "往期会话",
+    "messages": "消息：{count}",
+    "errors": "纠正：{count}",
+    "preparing": "报告生成中",
+    "generate": "生成报告",
+    "more": "显示更多",
+    "loadFailed": "无法加载往期会话。"
   }
 }

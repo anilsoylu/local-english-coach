@@ -128,6 +128,11 @@ def now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+def with_offset(stamp: str) -> str:
+    """A naive now() value with the server's UTC offset, so browsers in another zone read it right."""
+    return datetime.fromisoformat(stamp).astimezone().isoformat(timespec="seconds")
+
+
 @cache
 def _detector(native: str):
     """Built once per native language, limited to it and English. No low-accuracy mode: it is meant for long texts

@@ -21,18 +21,23 @@ STALE_AFTER = timedelta(hours=2)
 log = logging.getLogger("coach.analyze")
 _lock = threading.Lock()  # one analysis at a time: GPU holds one model
 
+# One error and one chunk, as clean_report and the database expect them. chats.py asks for the same items.
+ERROR_ITEM = {"type": "object", "properties": {
+    "kind": {"type": "string"},
+    "original": {"type": "string"},
+    "better": {"type": "string"},
+    "note": {"type": "string"},
+}, "required": ["kind", "original", "better", "note"]}
+CHUNK_ITEM = {"type": "object", "properties": {
+    "phrase": {"type": "string"},
+    "meaning": {"type": "string"},
+    "example": {"type": "string"},
+}, "required": ["phrase", "meaning", "example"]}
+
 SCHEMA = {
     "type": "object",
     "properties": {
-        "errors": {
-            "type": "array", "maxItems": 4,
-            "items": {"type": "object", "properties": {
-                "kind": {"type": "string"},
-                "original": {"type": "string"},
-                "better": {"type": "string"},
-                "note": {"type": "string"},
-            }, "required": ["kind", "original", "better", "note"]},
-        },
+        "errors": {"type": "array", "maxItems": 4, "items": ERROR_ITEM},
         "natural": {
             "type": "array", "maxItems": 3,
             "items": {"type": "object", "properties": {
@@ -40,14 +45,7 @@ SCHEMA = {
                 "natural": {"type": "string"},
             }, "required": ["original", "natural"]},
         },
-        "chunks": {
-            "type": "array", "maxItems": 3,
-            "items": {"type": "object", "properties": {
-                "phrase": {"type": "string"},
-                "meaning": {"type": "string"},
-                "example": {"type": "string"},
-            }, "required": ["phrase", "meaning", "example"]},
-        },
+        "chunks": {"type": "array", "maxItems": 3, "items": CHUNK_ITEM},
         "recurring_errors": {"type": "array", "maxItems": 5, "items": {"type": "string"}},
         "level_estimate": {"type": "string", "enum": ["A2", "A2+", "B1", "B1+", "B2"]},
         "summary": {"type": "string"},

@@ -144,4 +144,20 @@
   button {
     touch-action: manipulation;
   }
+  /* Geist has no CJK glyphs: Latin stays Geist, the rest falls through to system fonts (no CJK webfonts). */
+  :lang(ja) {
+    font-family:
+      var(--font-geist-sans), "Hiragino Sans", "Yu Gothic", "Noto Sans CJK JP",
+      sans-serif;
+  }
+  :lang(ko) {
+    font-family:
+      var(--font-geist-sans), "Apple SD Gothic Neo", "Malgun Gothic",
+      "Noto Sans CJK KR", sans-serif;
+  }
+  :lang(zh) {
+    font-family:
+      var(--font-geist-sans), "PingFang SC", "Microsoft YaHei",
+      "Noto Sans CJK SC", sans-serif;
+  }
 }

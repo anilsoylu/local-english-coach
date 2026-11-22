@@ -1,0 +1,50 @@
+{
+  "coachApp": {
+    "thinking": "Sam düşünüyor…",
+    "end": "Bitir",
+    "confirmEnd": "Emin misin?",
+    "newSession": "Yeni seans",
+    "back": "Geri",
+    "language": "Dil",
+    "chat": "Sohbet",
+    "message": "Mesajın",
+    "send": "Gönder",
+    "wait": "Bekle",
+    "stuck": "Takıldım"
+  },
+  "session": {
+    "unreachable": "Sunucuya ulaşılamadı.",
+    "startFailed": "Seans başlatılamadı. Bir duruma tekrar dokun.",
+    "sendFailed": "Bağlantı hatası, mesajın kutuda. Tekrar gönder."
+  },
+  "scenarioPicker": {
+    "title": "Bugün ne konuşalım?",
+    "intro": "Bir durum seç ve İngilizce yaz ya da klavyenin mikrofonuyla konuş. Takılırsan Türkçe yaz veya “Takıldım”a bas.",
+    "reload": "Yenile"
+  },
+  "languagePicker": {
+    "welcome": "English Coach'a hoş geldin",
+    "title": "Ana dilin",
+    "intro": "En iyi bildiğin dili seç. Menüler ve seans raporların bu dilde olur.",
+    "unreachable": "Sunucuya ulaşılamadı.",
+    "saveFailed": "Seçimin kaydedilemedi. Tekrar dene.",
+    "reload": "Yenile"
+  },
+  "warmupCard": {
+    "title": "Bugün kullanmayı dene"
+  },
+  "reportCard": {
+    "title": "Seans raporu",
+    "analyzing": "Analiz ediliyor, bu birkaç dakika sürebilir…",
+    "timeout": "Rapor hâlâ hazırlanıyor. Biraz sonra sayfayı yenile, hazır olunca burada görünür.",
+    "messages": "mesaj",
+    "avgWords": "ortalama kelime",
+    "responseTime": "cevap süresi (sn)",
+    "stuck": "takılma",
+    "chunksUsed": "kalıp kullanıldı",
+    "corrections": "Düzeltmeler",
+    "natural": "Daha doğal söyleyiş",
+    "newChunks": "Yeni kalıplar",
+    "tooShort": "Analiz için seans çok kısaydı."
+  }
+}

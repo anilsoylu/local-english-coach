@@ -2,7 +2,24 @@
 
 import { motion, useReducedMotion } from "motion/react";
 import { ThinkingShimmer } from "@/components/agents/loading-states/thinking-shimmer";
+import { useMessages } from "@/lib/i18n";
 import type { ReportState } from "@/lib/use-coach";
+
+const DEFAULTS = {
+  title: "Session report",
+  analyzing: "Analyzing, this can take a few minutes…",
+  timeout:
+    "The report is still being prepared. Reload the page in a little while, it shows up here when ready.",
+  messages: "messages",
+  avgWords: "average words",
+  responseTime: "response time (s)",
+  stuck: "times stuck",
+  chunksUsed: "phrases used",
+  corrections: "Corrections",
+  natural: "More natural wording",
+  newChunks: "New phrases",
+  tooShort: "The session was too short to analyze.",
+};
 
 function Stat({
   value,
@@ -39,26 +56,22 @@ function Section({
 
 export function ReportCard({ state }: { state: ReportState }) {
   const reduce = useReducedMotion();
+  const t = useMessages("reportCard", DEFAULTS);
   return (
     <motion.section
-      aria-label="Seans raporu"
+      aria-label={t("title")}
       data-testid="report"
       initial={reduce ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
       className="mt-6 flex flex-col gap-6 rounded-2xl border border-border bg-card p-5"
     >
-      <h2 className="text-base font-semibold">Seans raporu</h2>
+      <h2 className="text-base font-semibold">{t("title")}</h2>
       {state.status === "waiting" && (
-        <ThinkingShimmer className="text-sm">
-          Analiz ediliyor, bu birkaç dakika sürebilir…
-        </ThinkingShimmer>
+        <ThinkingShimmer className="text-sm">{t("analyzing")}</ThinkingShimmer>
       )}
       {state.status === "timeout" && (
-        <p className="text-sm text-muted-foreground">
-          Rapor hâlâ hazırlanıyor. Biraz sonra sayfayı yenile, hazır olunca
-          burada görünür.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("timeout")}</p>
       )}
       {state.status === "ready" && (
         <ReportBody metrics={state.metrics} report={state.report} />
@@ -71,26 +84,27 @@ function ReportBody({
   metrics: m,
   report: r,
 }: Pick<Extract<ReportState, { status: "ready" }>, "metrics" | "report">) {
+  const t = useMessages("reportCard", DEFAULTS);
   const stuck =
-    (m.help_count ?? 0) + (m.turkish_turns ?? 0) + (m.mixed_turns ?? 0);
-  const empty = !r.feedback_tr && !r.errors?.length;
+    (m.help_count ?? 0) + (m.native_turns ?? 0) + (m.mixed_turns ?? 0);
+  const empty = !r.feedback && !r.errors?.length;
   return (
     <>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <Stat value={m.user_turns} label="mesaj" />
-        <Stat value={m.avg_words} label="ortalama kelime" />
-        <Stat value={m.median_response_s} label="cevap süresi (sn)" />
-        <Stat value={stuck} label="takılma" />
+        <Stat value={m.user_turns} label={t("messages")} />
+        <Stat value={m.avg_words} label={t("avgWords")} />
+        <Stat value={m.median_response_s} label={t("responseTime")} />
+        <Stat value={stuck} label={t("stuck")} />
         <Stat
           value={`${m.chunks_used?.length ?? 0}/${m.chunks_offered ?? 0}`}
-          label="kalıp kullanıldı"
+          label={t("chunksUsed")}
         />
       </div>
-      {r.feedback_tr && (
-        <p className="text-pretty leading-relaxed">{r.feedback_tr}</p>
+      {r.feedback && (
+        <p className="text-pretty leading-relaxed">{r.feedback}</p>
       )}
       {!!r.errors?.length && (
-        <Section title="Düzeltmeler">
+        <Section title={t("corrections")}>
           <ul className="flex flex-col gap-4">
             {r.errors.map((e) => (
               <li key={e.original} className="flex flex-col gap-1">
@@ -103,16 +117,14 @@ function ReportBody({
                 <span lang="en" className="font-medium text-primary">
                   {e.better}
                 </span>
-                <span className="text-sm text-muted-foreground">
-                  {e.note_tr}
-                </span>
+                <span className="text-sm text-muted-foreground">{e.note}</span>
               </li>
             ))}
           </ul>
         </Section>
       )}
       {!!r.natural?.length && (
-        <Section title="Daha doğal söyleyiş">
+        <Section title={t("natural")}>
           <ul className="flex flex-col gap-3">
             {r.natural.map((n) => (
               <li key={n.original} className="flex flex-col gap-1">
@@ -128,7 +140,7 @@ function ReportBody({
         </Section>
       )}
       {!!r.chunks?.length && (
-        <Section title="Yeni kalıplar">
+        <Section title={t("newChunks")}>
           <ul className="flex flex-col gap-3">
             {r.chunks.map((c) => (
               <li key={c.phrase} className="flex flex-col gap-0.5">
@@ -137,7 +149,7 @@ function ReportBody({
                     {c.phrase}
                   </span>{" "}
                   <span className="text-sm text-muted-foreground">
-                    {c.meaning_tr}
+                    {c.meaning}
                   </span>
                 </span>
                 <span
@@ -152,9 +164,7 @@ function ReportBody({
         </Section>
       )}
       {empty && (
-        <p className="text-sm text-muted-foreground">
-          Analiz için seans çok kısaydı.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("tooShort")}</p>
       )}
     </>
   );

@@ -1,7 +1,7 @@
 [project]
 name = "english-coach"
 version = "0.1.0"
-description = "Local English conversation coach for Turkish speakers (Ollama + FastAPI)"
+description = "Local English conversation coach for language learners (Ollama + FastAPI)"
 license = "MIT"
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -9,6 +9,7 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn>=0.32",
     "pyyaml>=6",
+    "lingua-language-detector>=2.2.0",
 ]
 
 [project.optional-dependencies]

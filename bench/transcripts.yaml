@@ -1,5 +1,5 @@
 # Fixed sessions for comparing analysis models (bench/analysis.py).
-# Each turn: [role, text]; user turns may add a third item: help | tr
+# Each turn: [role, text]; user turns may add a third item: help | native (written in the native language, Turkish here)
 - id: delay
   turns:
     - [coach, "Hi Deniz, quick check-in. Are we still on track for Friday's demo?"]
@@ -11,7 +11,7 @@
     - [coach, "So you need two more days, and Monday could work. How will you tell the client?"]
     - [user, "I think I need... help.", help]
     - [coach, "Try starting with: I wanted to give you a heads-up about..."]
-    - [user, "Müşteriye nasıl söylerim bilmiyorum.", tr]
+    - [user, "Müşteriye nasıl söylerim bilmiyorum.", native]
     - [coach, "I'm not sure how to tell the client. Try saying that."]
     - [user, "I wanted to give you a heads-up, the payment is not working, I will fix until Monday."]
 - id: weekend

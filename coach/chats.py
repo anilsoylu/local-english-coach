@@ -26,7 +26,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-from coach import config, memory
+from coach import config, languages, memory
 from coach.analyze import analysis_slot, call_model, clean_report
 
 CHATS_DIR = config.PERSONAL_DIR / "chats"
@@ -63,14 +63,14 @@ LEARNER_SCHEMA = {
             "type": "array", "maxItems": 6,
             "items": {"type": "object", "properties": {
                 "kind": {"type": "string"}, "original": {"type": "string"},
-                "better": {"type": "string"}, "note_tr": {"type": "string"},
-            }, "required": ["kind", "original", "better", "note_tr"]},
+                "better": {"type": "string"}, "note": {"type": "string"},
+            }, "required": ["kind", "original", "better", "note"]},
         },
         "chunks": {
             "type": "array", "maxItems": 5,
             "items": {"type": "object", "properties": {
-                "phrase": {"type": "string"}, "meaning_tr": {"type": "string"}, "example": {"type": "string"},
-            }, "required": ["phrase", "meaning_tr", "example"]},
+                "phrase": {"type": "string"}, "meaning": {"type": "string"}, "example": {"type": "string"},
+            }, "required": ["phrase", "meaning", "example"]},
         },
         "recurring_errors": {"type": "array", "maxItems": 5, "items": {"type": "string"}},
     },
@@ -78,7 +78,7 @@ LEARNER_SCHEMA = {
 }
 
 LEARNER_PROMPT = """\
-These are English chat messages that {name}, a Turkish speaker (about {level}), wrote to a friend on Instagram. \
+These are English chat messages that {name}, {speaker} (about {level}), wrote to a friend on Instagram. \
 Only {name}'s lines are shown, one per line.
 
 Previously known recurring errors: {recurring}
@@ -89,8 +89,10 @@ Messages:
 
 Return JSON with:
 - errors: up to 6 mistakes that repeat or hurt understanding. Quote the original exactly, give the corrected \
-sentence and one short sentence in simple Turkish saying what to say instead ("X yerine Y de"), without grammar terms.
-- chunks: up to 5 natural spoken phrases {name} needed in these chats but didn't use. Meaning in Turkish, example in English.
+sentence and one short sentence in simple {language} saying what to say instead ("say Y instead of X"), without \
+grammar terms, addressing {name} informally in the second person.
+- chunks: up to 5 natural spoken phrases {name} needed in these chats but didn't use. Meaning in simple {language}, \
+example in English.
 - recurring_errors: updated short list (English, max 5) of error patterns, merging the old list with what you saw.
 Skip typos and missing capital letters. Don't invent errors in correct lines."""
 
@@ -224,9 +226,9 @@ def spread(lines: list[str], n: int) -> list[str]:
     return lines if len(lines) <= n else [lines[i * len(lines) // n] for i in range(n)]
 
 
-def learner_lines(messages: list[tuple[str, str]], me: str) -> list[str]:
-    """The learner's English messages with at least three words; Turkish lines teach nothing here."""
-    return spread([t for s, t in messages if s == me and memory.detect_lang(t) == "en" and len(t.split()) >= 3],
+def learner_lines(messages: list[tuple[str, str]], me: str, native: str) -> list[str]:
+    """The learner's English messages with at least three words; native-language lines teach nothing here."""
+    return spread([t for s, t in messages if s == me and len(t.split()) >= 3 and memory.detect_lang(t, native) == "en"],
                   LEARNER_SAMPLE)
 
 
@@ -236,18 +238,21 @@ def other_lines(messages: list[tuple[str, str]], me: str) -> list[str]:
 
 def import_chat(chat: Chat, me: str) -> dict:
     """Run both analyses and store the results. Returns counts only."""
-    _, messages = chat.read()
-    mine, theirs = learner_lines(messages, me), other_lines(messages, me)
     db = memory.connect()
     prof = memory.get_profile(db, config.USER_ID, {"name": config.LEARNER_NAME, "level": config.LEARNER_LEVEL,
                                                    "about": config.LEARNER_ABOUT})
+    native = prof["native_language"]
+    _, messages = chat.read()
+    mine, theirs = learner_lines(messages, me, native), other_lines(messages, me)
     known = [r["phrase"] for r in db.execute("SELECT phrase FROM chunks WHERE user_id=?", (config.USER_ID,))]
     recurring, errors, chunks = prof["recurring_errors"], [], []
     with analysis_slot():
         for i in range(0, len(mine), BATCH):
             batch = mine[i:i + BATCH]
             rep = call_model(LEARNER_PROMPT.format(
-                name=prof["name"] or "the learner", level=prof["level"], recurring=", ".join(recurring) or "none yet",
+                name=prof["name"] or "the learner", speaker=languages.speaker(native),
+                language=languages.english_name(native), level=prof["level"],
+                recurring=", ".join(recurring) or "none yet",
                 known="; ".join(known + [c["phrase"] for c in chunks]) or "none", lines="\n".join(batch)),
                 schema=LEARNER_SCHEMA)
             rep["natural"] = []
@@ -260,7 +265,7 @@ def import_chat(chat: Chat, me: str) -> dict:
         persona = call_model(STYLE_PROMPT.format(lines="\n".join(theirs)), schema=STYLE_SCHEMA) if theirs else None
     with db:
         for c in chunks:
-            memory.upsert_chunk(db, config.USER_ID, c["phrase"], c["meaning_tr"], c["example"], due_in_days=0)
+            memory.upsert_chunk(db, config.USER_ID, c["phrase"], c["meaning"], c["example"], due_in_days=0)
         db.execute("UPDATE profile SET recurring_errors=? WHERE user_id=?", (json.dumps(recurring), config.USER_ID))
     config.PERSONAL_DIR.mkdir(parents=True, exist_ok=True)
     (config.PERSONAL_DIR / f"findings-{chat.id}.json").write_text(json.dumps(errors, ensure_ascii=False, indent=1))

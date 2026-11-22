@@ -1,5 +1,8 @@
 """Headless browser test of the UI: a full session on a phone (dark) and a desktop (light).
 
+Each run gets its own server and temp DB, so both start at the native language onboarding. The phone picks
+Türkçe on screen; the desktop sets it through the API and reloads, so the server profile alone drives the UI.
+
 Usage: uv run --with playwright tests/ui-test.py [screenshot_dir]
 First time only: uv run --with playwright playwright install --with-deps chromium
 Starts its own server on a temp DB. Look at the screenshots; the JSON lists console errors and overflow.
@@ -9,13 +12,13 @@ import json
 import sys
 from pathlib import Path
 
+import httpx
 from playwright.async_api import async_playwright
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.harness import test_server  # noqa: E402
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "tests/screenshots"
-BASE = ""
 
 MESSAGES = [
     "Sorry, the demo is not ready, we have problem with payment API.",
@@ -40,7 +43,7 @@ async def send(page, text):
     await page.press(TEXTAREA, "Enter")
 
 
-async def run(p, name, viewport, scheme, mobile):
+async def run(p, base, name, viewport, scheme, mobile):
     browser = await p.chromium.launch()
     ctx = await browser.new_context(viewport=viewport, color_scheme=scheme, is_mobile=mobile, has_touch=mobile,
                                     device_scale_factor=2 if mobile else 1)
@@ -50,7 +53,22 @@ async def run(p, name, viewport, scheme, mobile):
     page.on("console", lambda m: problems.append(f"console.{m.type}: {m.text}") if m.type in ("error", "warning") else None)
     page.on("response", lambda r: problems.append(f"HTTP {r.status} {r.url}") if r.status >= 400 else None)
 
-    await page.goto(BASE + "/")
+    await page.goto(base + "/")
+    await page.wait_for_selector('[data-language="tr"]')  # first visit: pick the native language
+    await page.wait_for_timeout(500)
+    await page.screenshot(path=f"{OUT}/{name}-0-language.png")
+    if mobile:
+        await page.click('[data-language="tr"]')
+    else:
+        httpx.put(f"{base}/api/profile", json={"native_language": "tr"}, timeout=10).raise_for_status()
+        await page.reload()
+    await page.wait_for_selector("[data-scenario]")
+    turkish_ui = await page.is_visible("text=Bugün ne konuşalım?")
+    html_lang = await page.get_attribute("html", "lang")
+    # The header button opens the same list, with the current language marked; Back returns.
+    await page.click('[data-testid="language"]')
+    current_marked = await page.is_visible('[data-language="tr"][aria-current="true"]')
+    await page.click("header button")
     await page.wait_for_selector("[data-scenario]")
     await page.wait_for_timeout(500)  # let the cards finish their entrance
     await page.screenshot(path=f"{OUT}/{name}-1-start.png")
@@ -92,26 +110,34 @@ async def run(p, name, viewport, scheme, mobile):
     coach = await page.locator(COACH).all_inner_texts()
     new_visible = await page.is_visible('[data-testid="new"]')
     report_text = await page.inner_text('[data-testid="report"]')
+    if not mobile:  # CJK and Cyrillic rendering of the scenario screen
+        await page.click('[data-testid="new"]')  # otherwise a reload shows the ended session's report again
+        for lang in ("ja", "ru"):
+            httpx.put(f"{base}/api/profile", json={"native_language": lang}, timeout=10).raise_for_status()
+            await page.reload()
+            await page.wait_for_selector("[data-scenario]")
+            await page.wait_for_timeout(500)
+            await page.screenshot(path=f"{OUT}/{name}-5-start-{lang}.png")
     await browser.close()
     return {
-        "name": name, "textarea_attrs": attrs, "warmup_items": warm, "resumed_after_reload": resumed,
+        "name": name, "turkish_ui": turkish_ui, "html_lang": html_lang, "current_language_marked": current_marked,
+        "textarea_attrs": attrs, "warmup_items": warm, "resumed_after_reload": resumed,
         "horizontal_overflow_px": overflow, "new_session_button": new_visible,
         "coach_replies": coach, "report_excerpt": report_text[:600], "problems": problems,
     }
 
 
 async def main():
-    global BASE
     Path(OUT).mkdir(parents=True, exist_ok=True)
-    with test_server(port=8798) as (base, _log):
-        BASE = base
-        async with async_playwright() as p:
-            results = [
-                await run(p, "mobile", {"width": 390, "height": 844}, "dark", True),
-                await run(p, "desktop", {"width": 1280, "height": 800}, "light", False),
-            ]
+    results = []
+    async with async_playwright() as p:
+        for port, args in [(8798, ("mobile", {"width": 390, "height": 844}, "dark", True)),
+                           (8797, ("desktop", {"width": 1280, "height": 800}, "light", False))]:
+            with test_server(port=port) as (base, _log):
+                results.append(await run(p, base, *args))
     print(json.dumps(results, ensure_ascii=False, indent=2))
-    bad = [r["name"] for r in results if r["problems"] or r["horizontal_overflow_px"] > 0 or not r["resumed_after_reload"]]
+    bad = [r["name"] for r in results if r["problems"] or r["horizontal_overflow_px"] > 0 or not r["resumed_after_reload"]
+           or not r["turkish_ui"] or r["html_lang"] != "tr" or not r["current_language_marked"]]
     print("FAIL: " + ", ".join(bad) if bad else "PASS")
     sys.exit(1 if bad else 0)
 

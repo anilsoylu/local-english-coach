@@ -5,6 +5,7 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
 } from "react";
 
@@ -52,6 +53,10 @@ export function LocaleProvider({
   children,
 }: LocaleProviderProps) {
   const value = useMemo(() => ({ locale, messages }), [locale, messages]);
+  // Screen readers, hyphenation and the :lang() font rules follow the page language.
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
   return (
     <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
   );

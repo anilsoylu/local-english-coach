@@ -1,7 +1,13 @@
 "use client";
 
-import { LifeBuoy, RotateCcw, Square } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+  ArrowLeft,
+  Languages,
+  LifeBuoy,
+  RotateCcw,
+  Square,
+} from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ThinkingShimmer } from "@/components/agents/loading-states/thinking-shimmer";
 import {
   Message,
@@ -16,19 +22,37 @@ import {
 import { MessageScroller } from "@/components/agents/message-scroller";
 import { PromptInput } from "@/components/agents/prompt-input";
 import { StreamingResponse } from "@/components/agents/streaming-response";
+import { LanguagePicker } from "@/components/coach/language-picker";
 import { ReportCard } from "@/components/coach/report-card";
 import { ScenarioIcon } from "@/components/coach/scenario-icon";
 import { ScenarioPicker } from "@/components/coach/scenario-picker";
 import { WarmupCard } from "@/components/coach/warmup-card";
 import { Button } from "@/components/ui/button";
-import { type ChatMessage, useCoach } from "@/lib/use-coach";
+import { LocaleProvider, useMessages } from "@/lib/i18n";
+import { type ChatMessage, HELP_TEXT, useCoach } from "@/lib/use-coach";
+import { SOURCE_LANGUAGE, useNativeLanguage } from "@/lib/use-native-language";
 import { cn } from "@/lib/utils";
 
+const DEFAULTS = {
+  thinking: "Sam is thinking…",
+  end: "End",
+  confirmEnd: "Sure?",
+  newSession: "New session",
+  back: "Back",
+  language: "Language",
+  chat: "Chat",
+  message: "Your message",
+  send: "Send",
+  wait: "Wait",
+  stuck: "I'm stuck",
+};
+
 function CoachBubble({ m }: { m: ChatMessage }) {
+  const t = useMessages("coachApp", DEFAULTS);
   if (m.streaming && !m.content) {
     return (
       <ThinkingShimmer className="px-1 py-2 text-sm">
-        Sam düşünüyor…
+        {t("thinking")}
       </ThinkingShimmer>
     );
   }
@@ -61,6 +85,7 @@ function EndButton({
   disabled: boolean;
   onEnd: () => void;
 }) {
+  const t = useMessages("coachApp", DEFAULTS);
   const [armed, setArmed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -86,15 +111,19 @@ function EndButton({
       className={COARSE_BUTTON}
     >
       <Square aria-hidden />
-      {armed ? "Emin misin?" : "Bitir"}
+      {t(armed ? "confirmEnd" : "end")}
     </Button>
   );
 }
 
-export function CoachApp() {
-  const c = useCoach();
-  const current = c.scenarios.find((s) => s.id === c.scenario);
+interface FrameProps {
+  subtitle?: ReactNode;
+  actions?: ReactNode;
+  children?: ReactNode;
+}
 
+/** The page shell: header with the app name, an optional subtitle and actions, then the content. */
+function Frame({ subtitle, actions, children }: FrameProps) {
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
       <header className="border-b border-border/70 bg-background pt-[env(safe-area-inset-top)]">
@@ -106,13 +135,116 @@ export function CoachApp() {
             <span className="text-sm font-semibold leading-tight">
               English Coach
             </span>
-            {c.phase !== "idle" && current && (
-              <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                <ScenarioIcon id={current.id} className="size-3" />
-                <span className="truncate">{current.title}</span>
-              </span>
-            )}
+            {subtitle}
           </div>
+          {actions}
+        </div>
+      </header>
+      {children}
+    </div>
+  );
+}
+
+export function CoachApp() {
+  const lang = useNativeLanguage();
+  return (
+    <LocaleProvider
+      locale={lang.code || SOURCE_LANGUAGE}
+      messages={lang.messages}
+    >
+      <App lang={lang} />
+    </LocaleProvider>
+  );
+}
+
+/** Onboarding until the native language is known, then the coach. */
+function App({ lang }: { lang: ReturnType<typeof useNativeLanguage> }) {
+  const t = useMessages("coachApp", DEFAULTS);
+  const [picking, setPicking] = useState(false);
+  // Nothing but the shell until the language is known, so no text renders in the wrong language.
+  if (lang.code === null) return <Frame />;
+  if (!lang.code || picking) {
+    return (
+      <Frame
+        actions={
+          picking && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPicking(false)}
+              className={COARSE_BUTTON}
+            >
+              <ArrowLeft aria-hidden />
+              {t("back")}
+            </Button>
+          )
+        }
+      >
+        <main className="flex-1 overflow-y-auto">
+          <LanguagePicker
+            languages={lang.languages}
+            current={lang.code}
+            onPick={async (code) => {
+              await lang.choose(code);
+              setPicking(false);
+            }}
+          />
+        </main>
+      </Frame>
+    );
+  }
+  const name = lang.languages?.find((l) => l.code === lang.code)?.name;
+  return (
+    // Scenario titles come in the native language: a new language starts a fresh coach.
+    <Coach
+      key={lang.code}
+      languageName={name}
+      onChangeLanguage={() => setPicking(true)}
+    />
+  );
+}
+
+function Coach({
+  languageName,
+  onChangeLanguage,
+}: {
+  languageName?: string;
+  onChangeLanguage: () => void;
+}) {
+  const t = useMessages("coachApp", DEFAULTS);
+  const c = useCoach();
+  const current = c.scenarios.find((s) => s.id === c.scenario);
+
+  return (
+    <Frame
+      subtitle={
+        c.phase !== "idle" &&
+        current && (
+          <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+            <ScenarioIcon id={current.id} className="size-3" />
+            <span className="truncate">{current.title}</span>
+          </span>
+        )
+      }
+      actions={
+        <>
+          {c.phase === "idle" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onChangeLanguage}
+              aria-label={
+                languageName
+                  ? `${t("language")}: ${languageName}`
+                  : t("language")
+              }
+              data-testid="language"
+              className={COARSE_BUTTON}
+            >
+              <Languages aria-hidden />
+              {languageName ?? t("language")}
+            </Button>
+          )}
           {c.phase === "chat" && (
             <EndButton
               disabled={c.busy || !c.messages.some((m) => m.from === "user")}
@@ -128,12 +260,12 @@ export function CoachApp() {
               className={COARSE_BUTTON}
             >
               <RotateCcw aria-hidden />
-              Yeni seans
+              {t("newSession")}
             </Button>
           )}
-        </div>
-      </header>
-
+        </>
+      }
+    >
       {c.phase === "idle" ? (
         <main className="flex-1 overflow-y-auto">
           <ScenarioPicker
@@ -154,7 +286,7 @@ export function CoachApp() {
           contentClassName="mx-auto w-full max-w-2xl px-4"
           busy={c.busy}
           smooth={!c.busy}
-          labels={{ label: "Sohbet" }}
+          labels={{ label: t("chat") }}
         >
           {c.phase === "chat" && <WarmupCard chunks={c.warmup} />}
           <MessageGroup spacing="default" lang="en">
@@ -213,7 +345,7 @@ export function CoachApp() {
               minRows={1}
               maxRows={6}
               placeholder="Type in English…"
-              labels={{ label: "Mesajın", send: "Gönder", stop: "Bekle" }}
+              labels={{ label: t("message"), send: t("send"), stop: t("wait") }}
               // The coach has to see the real mistakes: no autocorrect, no spellcheck. 16px stops iOS zoom;
               // the hidden mirror div that sizes the textarea gets the same size so lines wrap alike.
               // PromptInput sets height to rows * 24px with border-box, so its top padding becomes margin
@@ -232,18 +364,18 @@ export function CoachApp() {
                   variant="ghost"
                   size="sm"
                   disabled={c.busy}
-                  onClick={() => c.send("Help.", true)}
+                  onClick={() => c.send(HELP_TEXT, true)}
                   data-testid="help"
                   className={COARSE_BUTTON}
                 >
                   <LifeBuoy aria-hidden />
-                  Takıldım
+                  {t("stuck")}
                 </Button>
               }
             />
           </div>
         </footer>
       )}
-    </div>
+    </Frame>
   );
 }

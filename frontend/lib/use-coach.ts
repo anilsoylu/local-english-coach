@@ -8,6 +8,8 @@ import {
   type Scenario,
   type WarmupChunk,
 } from "@/lib/api";
+import { useMessages } from "@/lib/i18n";
+import { store } from "@/lib/store";
 
 export interface ChatMessage {
   id: number;
@@ -25,23 +27,6 @@ export type ReportState =
   | { status: "ready"; metrics: Metrics; report: Report }
   | { status: "timeout" };
 
-/** localStorage can throw (private mode, blocked storage); it is a convenience, never required. */
-const store = {
-  get: (key: string) => {
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  },
-  set: (key: string, value: string | null) => {
-    try {
-      if (value === null) localStorage.removeItem(key);
-      else localStorage.setItem(key, value);
-    } catch {}
-  },
-};
-
 const REPORT_POLL_MS = 3000;
 const REPORT_POLLS = 120; // 6 minutes: the analysis model can take a while on the first run
 
@@ -51,7 +36,17 @@ const msg = (m: Omit<ChatMessage, "id">): ChatMessage => ({
   ...m,
 });
 
+const DEFAULTS = {
+  unreachable: "Could not reach the server.",
+  startFailed: "Could not start the session. Tap a situation again.",
+  sendFailed: "Connection error, your message is in the box. Send it again.",
+};
+
+/** Sent by the "I'm stuck" button; the server counts it as a help turn. */
+export const HELP_TEXT = "help";
+
 export function useCoach() {
+  const t = useMessages("session", DEFAULTS);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [scenario, setScenarioState] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
@@ -106,7 +101,7 @@ export function useCoach() {
     let cancelled = false;
     (async () => {
       const list = await api.scenarios().catch(() => {
-        setError("Sunucuya ulaşılamadı.");
+        setError(t("unreachable"));
         return [];
       });
       if (cancelled) return;
@@ -136,7 +131,7 @@ export function useCoach() {
     return () => {
       cancelled = true;
     };
-  }, [enterChat, pollReport]);
+  }, [enterChat, pollReport, t]);
 
   // The model leaves VRAM after 15 idle minutes; load it whenever the page is opened or shown again.
   useEffect(() => {
@@ -160,12 +155,12 @@ export function useCoach() {
         setMessages([msg({ from: "assistant", content: data.opening })]);
         enterChat(data.session_id);
       } catch {
-        setError("Seans başlatılamadı. Bir duruma tekrar dokun.");
+        setError(t("startFailed"));
       } finally {
         setStarting(false);
       }
     },
-    [scenario, enterChat],
+    [scenario, enterChat, t],
   );
 
   const send = useCallback(
@@ -200,7 +195,7 @@ export function useCoach() {
           ...m,
           msg({
             from: "assistant",
-            content: "Bağlantı hatası, mesajın kutuda. Tekrar gönder.",
+            content: t("sendFailed"),
             error: true,
           }),
         ]);
@@ -209,7 +204,7 @@ export function useCoach() {
         readyAt.current = performance.now();
       }
     },
-    [busy, sid],
+    [busy, sid, t],
   );
 
   const end = useCallback(async () => {

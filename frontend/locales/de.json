@@ -1,0 +1,50 @@
+{
+  "coachApp": {
+    "thinking": "Sam denkt nach…",
+    "end": "Beenden",
+    "confirmEnd": "Sicher?",
+    "newSession": "Neue Sitzung",
+    "back": "Zurück",
+    "language": "Sprache",
+    "chat": "Chat",
+    "message": "Deine Nachricht",
+    "send": "Senden",
+    "wait": "Warten",
+    "stuck": "Ich hänge fest"
+  },
+  "session": {
+    "unreachable": "Der Server ist nicht erreichbar.",
+    "startFailed": "Die Sitzung konnte nicht starten. Tippe noch mal auf eine Situation.",
+    "sendFailed": "Verbindungsfehler. Deine Nachricht steht noch im Feld. Sende sie noch mal."
+  },
+  "scenarioPicker": {
+    "title": "Worüber sprechen wir heute?",
+    "intro": "Wähl eine Situation und schreib auf Englisch oder sprich über das Mikrofon deiner Tastatur. Wenn du hängst, schreib in deiner Sprache oder tipp auf „Ich hänge fest“.",
+    "reload": "Neu laden"
+  },
+  "languagePicker": {
+    "welcome": "Willkommen bei English Coach",
+    "title": "Deine Muttersprache",
+    "intro": "Wähl die Sprache, die du am besten kannst. Menüs und deine Sitzungsberichte erscheinen darin.",
+    "unreachable": "Der Server ist nicht erreichbar.",
+    "saveFailed": "Deine Auswahl konnte nicht gespeichert werden. Versuch es noch mal.",
+    "reload": "Neu laden"
+  },
+  "warmupCard": {
+    "title": "Heute ausprobieren"
+  },
+  "reportCard": {
+    "title": "Sitzungsbericht",
+    "analyzing": "Wird analysiert, das kann ein paar Minuten dauern…",
+    "timeout": "Der Bericht wird noch erstellt. Lad die Seite gleich noch mal, dann erscheint er hier.",
+    "messages": "Nachrichten",
+    "avgWords": "Wörter pro Nachricht",
+    "responseTime": "Antwortzeit (s)",
+    "stuck": "Hänger",
+    "chunksUsed": "Wendungen benutzt",
+    "corrections": "Korrekturen",
+    "natural": "Natürlicher formuliert",
+    "newChunks": "Neue Wendungen",
+    "tooShort": "Die Sitzung war zu kurz für eine Analyse."
+  }
+}

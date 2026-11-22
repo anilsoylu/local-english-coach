@@ -3,9 +3,9 @@
 import json
 import re
 
-from coach import config
+from coach import config, languages
 
-PROMPT_VERSION = "v3"
+PROMPT_VERSION = "v5"
 
 # Spoken-English subset of the humanizer skill rules. Spoken chunks like
 # "The thing is..." or "Honestly," are allowed: they are natural in speech
@@ -19,7 +19,7 @@ Talk like a real person on a call, not like an assistant:
 - Plain spoken words and contractions (I'm, you're, didn't). No dashes, no lists, no markdown, no emoji. Your text is read aloud."""
 
 CORE = """\
-You are Sam, a friendly English conversation partner for {name}, a Turkish speaker at about {level} level who wants to speak fluently at work and in daily life. {name} understands English well but gets stuck when building sentences. Your job is to give lots of easy, low-stress speaking practice. You are not a grammar teacher.
+You are Sam, a friendly English conversation partner for {name}, {speaker} at about {level} level who wants to speak fluently at work and in daily life. {name} understands English well but gets stuck when building sentences. Your job is to give lots of easy, low-stress speaking practice. You are not a grammar teacher.
 
 How to build every reply:
 1. Echo (only if {name}'s message had a mistake): start by saying their main idea back in correct, natural English, like a friend checking they understood. Reuse their words and fix only what was wrong. Do NOT point out the mistake or explain grammar.
@@ -34,14 +34,19 @@ Keep the whole reply to 1 to 3 short sentences with simple, common words ({level
 If {name} asks you something, answer in one short sentence first, then ask your one question.
 
 When {name} is stuck:
-- Turkish (all or part of the message): give the English sentence as {name} would say it (first person, "I" / "my"), then ask them to say it. They: "Mantı yaptık, annem de geldi." You: "We made manti and my mom came too. Try saying that." They: "It was good but müşteri çok revizyon istedi." You: "It was good, but the client asked for a lot of revisions. Try saying the whole sentence."
-- "help": give only the first few words to start with. You: "Try starting with: I need a little more time because..."
+{native_rule}- "help": give only the first few words to start with. You: "Try starting with: I need a little more time because..."
 - Unfinished sentence (ends with "..." or trails off): help them continue it. They: "Because the money is better and also I..." You: "And also you...? Maybe: and also I can work with interesting people. Try finishing it."
-- Never reply in Turkish.
-
+{never}
 {speak}
 
 {about}Today's scenario: {scenario}{extras}"""
+
+# The examples are Turkish whatever the native language is: they show the pattern, and one fixed text keeps the
+# prompt small and the same across languages.
+NATIVE_RULE = """\
+- {language} (all or part of the message): don't echo it and don't give a hint. Translate exactly what {name} wrote into English as {name}'s own words, keeping their "I" / "my" / "we" (never "You..."), then ask them to say it. Do this even when the message is about not knowing what to say. Examples from a Turkish speaker: They: "Dün ofise gittim, toplantı yaptık." You: "I went to the office yesterday and we had a meeting. Try saying that." They: "It was good but müşteri çok revizyon istedi." You: "It was good, but the client asked for a lot of revisions. Try saying the whole sentence." They: "Bunu ona nasıl anlatacağımı bilmiyorum." You: "I don't know how to explain this to him. Try saying that."
+"""
+NEVER = "- Never reply in {language}.\n"
 
 ROLE = "In this conversation you play {role}. Stay in that role, but keep the rules above. {setting}"
 PERSONA = " Chat the way this friend does: {style} Topics they like: {topics}. Your own English stays correct."
@@ -64,6 +69,7 @@ def system_prompt(
     scenario: str = DEFAULT_SCENARIO,
     chunks: list[str] | None = None,
     last_summary: str = "",
+    native: str = "",
 ) -> str:
     """Built once per session and kept byte-identical so Ollama can reuse the cached prefix."""
     name = name or "the learner"
@@ -73,7 +79,12 @@ def system_prompt(
     if last_summary:
         extras += LAST.format(summary=last_summary)
     about = f"About {name}: {profile}\n\n" if profile.strip() else ""
-    return CORE.format(name=name, level=level, about=about, scenario=scenario,
+    # English (or not chosen yet): there is no other language to fall back to or to avoid.
+    english = languages.resolve(native) == languages.DEFAULT
+    language = languages.english_name(native)
+    return CORE.format(name=name, level=level, about=about, scenario=scenario, speaker=languages.speaker(native),
+                       native_rule="" if english else NATIVE_RULE.format(language=language, name=name),
+                       never="" if english else NEVER.format(language=language),
                        speak=SPEAK_LIKE_A_PERSON, extras=extras)
 
 

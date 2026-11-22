@@ -6,7 +6,11 @@ import json
 import re
 import sqlite3
 from datetime import date, datetime, timedelta
+from functools import cache
 
+from lingua import IsoCode639_1, Language, LanguageDetectorBuilder
+
+from coach import languages
 from coach.config import DB_PATH
 
 # Leitner box -> days until next review
@@ -19,7 +23,8 @@ CREATE TABLE IF NOT EXISTS profile (
   level TEXT NOT NULL,
   about TEXT NOT NULL,
   recurring_errors TEXT NOT NULL DEFAULT '[]',
-  last_summary TEXT NOT NULL DEFAULT ''
+  last_summary TEXT NOT NULL DEFAULT '',
+  native_language TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS sessions (
   id INTEGER PRIMARY KEY,
@@ -68,12 +73,38 @@ CREATE TABLE IF NOT EXISTS chunks (
 CREATE INDEX IF NOT EXISTS turns_session ON turns(session_id);
 """
 
-TURKISH_CHARS = re.compile(r"[çğışöüÇĞİŞÖÜ]")
-TURKISH_WORDS = re.compile(
-    r"\b(ve|bir|bu|şu|çok|ama|değil|nasıl|denir|yani|şey|biz|onu|bunu|için|gibi|mi|mı|ne|evet|hayır|yaptık|yaptım)\b",
-    re.I,
-)
-HELP = re.compile(r"^\s*(help|help me|help please|yardım)\b|\bhelp\s*(please)?\s*[.!]*\s*$", re.I)
+HELP = re.compile(r"^\s*(help|help me|help please)\b|\bhelp\s*(please)?\s*[.!]*\s*$", re.I)
+LETTER_WORD = re.compile(r"[^\W\d_]+")  # CJK runs without spaces count as one word
+# Per-word confidence for the native language, with the detector limited to {English, native} so the two values add
+# up to 1. A word "leans native" above 0.5. A message needs at least one word at 0.9 or more to count as native at
+# all: short English words ("a", "I", "ok") often sit between 0.5 and 0.8 for one language or another, while real
+# native words ("nasıl", "pidió", "weiß", any CJK or Cyrillic run) score 0.9 to 1.0. Then 70% leaning-native words
+# make it a native message and anything less a mixed one ("It was good but el cliente pidió muchos cambios").
+STRONG_NATIVE = 0.9
+NATIVE_SHARE = 0.7
+
+
+def _migrate(db: sqlite3.Connection) -> None:
+    """Databases from before native languages: the app assumed Turkish, so those learners keep Turkish, Turkish turns
+    become "native", and stored reports and metrics get the language-neutral key names."""
+    if any(c["name"] == "native_language" for c in db.execute("PRAGMA table_info(profile)")):
+        return
+    renames = {"note_tr": "note", "meaning_tr": "meaning", "feedback_tr": "feedback", "turkish_turns": "native_turns"}
+
+    def rename(obj):
+        if isinstance(obj, dict):
+            return {renames.get(k, k): rename(v) for k, v in obj.items()}
+        return [rename(v) for v in obj] if isinstance(obj, list) else obj
+
+    with db:
+        db.execute("ALTER TABLE profile ADD COLUMN native_language TEXT NOT NULL DEFAULT ''")
+        db.execute("UPDATE profile SET native_language='tr'")
+        db.execute("UPDATE turns SET lang='native' WHERE lang='tr'")
+        for r in db.execute("SELECT id, metrics, report FROM sessions WHERE report IS NOT NULL OR metrics IS NOT NULL"
+                            ).fetchall():
+            metrics, report = (r[k] and json.dumps(rename(json.loads(r[k])), ensure_ascii=False)
+                               for k in ("metrics", "report"))
+            db.execute("UPDATE sessions SET metrics=?, report=? WHERE id=?", (metrics, report, r["id"]))
 
 
 def connect() -> sqlite3.Connection:
@@ -86,6 +117,7 @@ def connect() -> sqlite3.Connection:
     db.execute("PRAGMA synchronous=NORMAL")
     db.execute("PRAGMA foreign_keys=ON")
     db.executescript(SCHEMA)
+    _migrate(db)
     return db
 
 
@@ -93,17 +125,27 @@ def now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
-def detect_lang(text: str) -> str:
-    """en / mixed / tr. Capitalized words with Turkish letters (Çeşme, İzmir) are names, not Turkish.
-    The first word of a sentence is capitalized too, so it only counts if another word is Turkish."""
-    words = re.findall(r"\w+", text)
-    if not words:
+@cache
+def _detector(native: str):
+    """Built once per native language, limited to it and English. No low-accuracy mode: it is meant for long texts
+    and these messages are short. https://github.com/pemistahl/lingua-py"""
+    lang = Language.from_iso_code_639_1(getattr(IsoCode639_1, native.split("-")[0].upper()))
+    return lang, LanguageDetectorBuilder.from_languages(Language.ENGLISH, lang).build()
+
+
+def detect_lang(text: str, native: str) -> str:
+    """en / native / mixed. Capitalized words are skipped: they are names (Çeşme, Barcelona, München) or a
+    sentence's first word, and a name must not turn an English sentence into a native one. English or no native
+    language chosen: always en."""
+    native = languages.resolve(native)
+    words = [w for w in LETTER_WORD.findall(text) if not w[0].isupper()]
+    if native == languages.DEFAULT or not words:
         return "en"
-    tr = [w for w in words if TURKISH_WORDS.fullmatch(w) or (TURKISH_CHARS.search(w) and not w[0].isupper())]
-    if not tr:
+    lang, detector = _detector(native)
+    conf = [detector.compute_language_confidence(w, lang) for w in words]
+    if max(conf) < STRONG_NATIVE:
         return "en"
-    capital_tr = [w for w in words if TURKISH_CHARS.search(w) and w[0].isupper()]
-    return "tr" if len(tr) + len(capital_tr) >= len(words) * 0.5 else "mixed"
+    return "native" if sum(c > 0.5 for c in conf) >= NATIVE_SHARE * len(conf) else "mixed"
 
 
 def is_help(text: str) -> bool:
@@ -111,7 +153,8 @@ def is_help(text: str) -> bool:
 
 
 def get_profile(db: sqlite3.Connection, user_id: str, defaults: dict) -> dict:
-    """name/about always follow config.yaml; level, recurring errors and summary are learned."""
+    """name/about always follow config.yaml; level, recurring errors and summary are learned; the native language is
+    picked in the UI ('' until then)."""
     row = db.execute("SELECT * FROM profile WHERE user_id=?", (user_id,)).fetchone()
     if row is None:
         db.execute(

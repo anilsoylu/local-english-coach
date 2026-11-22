@@ -1,0 +1,50 @@
+{
+  "coachApp": {
+    "thinking": "Sam está pensando…",
+    "end": "Terminar",
+    "confirmEnd": "¿Seguro?",
+    "newSession": "Nueva sesión",
+    "back": "Atrás",
+    "language": "Idioma",
+    "chat": "Chat",
+    "message": "Tu mensaje",
+    "send": "Enviar",
+    "wait": "Espera",
+    "stuck": "Ayúdame"
+  },
+  "session": {
+    "unreachable": "No se pudo conectar con el servidor.",
+    "startFailed": "No se pudo empezar la sesión. Toca una situación otra vez.",
+    "sendFailed": "Error de conexión. Tu mensaje sigue escrito. Envíalo de nuevo."
+  },
+  "scenarioPicker": {
+    "title": "¿De qué hablamos hoy?",
+    "intro": "Elige una situación y escribe en inglés, o habla con el micrófono del teclado. Si te atascas, escribe en tu idioma o toca “Ayúdame”.",
+    "reload": "Recargar"
+  },
+  "languagePicker": {
+    "welcome": "Te damos la bienvenida a English Coach",
+    "title": "Tu idioma nativo",
+    "intro": "Elige el idioma que mejor conoces. Los menús y los informes de tus sesiones estarán en ese idioma.",
+    "unreachable": "No se pudo conectar con el servidor.",
+    "saveFailed": "No se pudo guardar tu elección. Inténtalo de nuevo.",
+    "reload": "Recargar"
+  },
+  "warmupCard": {
+    "title": "Intenta usarlas hoy"
+  },
+  "reportCard": {
+    "title": "Informe de la sesión",
+    "analyzing": "Analizando, puede tardar unos minutos…",
+    "timeout": "El informe todavía se está preparando. Recarga la página en un rato; aparecerá aquí cuando esté listo.",
+    "messages": "mensajes",
+    "avgWords": "palabras por mensaje",
+    "responseTime": "tiempo de respuesta (s)",
+    "stuck": "atascos",
+    "chunksUsed": "frases usadas",
+    "corrections": "Correcciones",
+    "natural": "Formas más naturales",
+    "newChunks": "Frases nuevas",
+    "tooShort": "La sesión fue demasiado corta para analizarla."
+  }
+}

@@ -41,7 +41,6 @@
   },
   "reportCard": {
     "title": "Raport z sesji",
-    "analyzing": "Analizuję, to może potrwać kilka minut…",
     "timeout": "Raport jest jeszcze przygotowywany. Odśwież stronę za chwilę, pojawi się tutaj, gdy będzie gotowy.",
     "messages": "wiadomości",
     "avgWords": "słów na wiadomość",
@@ -53,7 +52,9 @@
     "newChunks": "Nowe zwroty",
     "tooShort": "Sesja była za krótka, by ją przeanalizować.",
     "missing": "Ta sesja nie ma jeszcze raportu.",
-    "generate": "Wygeneruj raport"
+    "generate": "Wygeneruj raport",
+    "waiting": "Analizuję, to potrwa około 30 sekund…",
+    "elapsed": "{seconds} s"
   },
   "sessionHistory": {
     "title": "Poprzednie sesje",

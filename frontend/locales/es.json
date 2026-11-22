@@ -41,7 +41,6 @@
   },
   "reportCard": {
     "title": "Informe de la sesión",
-    "analyzing": "Analizando, puede tardar unos minutos…",
     "timeout": "El informe todavía se está preparando. Recarga la página en un rato; aparecerá aquí cuando esté listo.",
     "messages": "mensajes",
     "avgWords": "palabras por mensaje",
@@ -53,7 +52,9 @@
     "newChunks": "Frases nuevas",
     "tooShort": "La sesión fue demasiado corta para analizarla.",
     "missing": "Esta sesión todavía no tiene informe.",
-    "generate": "Generar informe"
+    "generate": "Generar informe",
+    "waiting": "Analizando, tarda unos 30 segundos…",
+    "elapsed": "{seconds} s"
   },
   "sessionHistory": {
     "title": "Sesiones anteriores",

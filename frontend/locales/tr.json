@@ -41,7 +41,6 @@
   },
   "reportCard": {
     "title": "Seans raporu",
-    "analyzing": "Analiz ediliyor, bu birkaç dakika sürebilir…",
     "timeout": "Rapor hâlâ hazırlanıyor. Biraz sonra sayfayı yenile, hazır olunca burada görünür.",
     "messages": "mesaj",
     "avgWords": "ortalama kelime",
@@ -53,7 +52,9 @@
     "newChunks": "Yeni kalıplar",
     "tooShort": "Analiz için seans çok kısaydı.",
     "missing": "Bu seansın henüz raporu yok.",
-    "generate": "Rapor oluştur"
+    "generate": "Rapor oluştur",
+    "waiting": "Analiz ediliyor, yaklaşık 30 saniye sürer…",
+    "elapsed": "{seconds} sn"
   },
   "sessionHistory": {
     "title": "Geçmiş seanslar",

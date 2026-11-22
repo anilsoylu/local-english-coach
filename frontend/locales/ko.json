@@ -41,7 +41,6 @@
   },
   "reportCard": {
     "title": "세션 리포트",
-    "analyzing": "분석 중이에요. 몇 분 걸릴 수 있어요…",
     "timeout": "리포트를 아직 준비하고 있어요. 잠시 후 페이지를 새로고침하면, 준비되었을 때 여기에 나타나요.",
     "messages": "메시지",
     "avgWords": "메시지당 평균 단어",
@@ -53,7 +52,9 @@
     "newChunks": "새 표현",
     "tooShort": "분석하기에는 세션이 너무 짧았어요.",
     "missing": "이 세션에는 아직 리포트가 없어요.",
-    "generate": "리포트 생성"
+    "generate": "리포트 생성",
+    "waiting": "분석 중이에요. 30초 정도 걸려요…",
+    "elapsed": "{seconds}초"
   },
   "sessionHistory": {
     "title": "지난 세션",

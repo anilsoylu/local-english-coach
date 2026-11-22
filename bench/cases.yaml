@@ -1,7 +1,9 @@
 # Fixed learner turns for comparing models and prompt versions.
-# kind: normal | turkish | help | unfinished
+# kind: normal | native (the learner writes in their native language) | help | unfinished
+# native: the learner's native language code (coach/languages.py), default tr.
 # recast: the reply should contain at least one of these (case-insensitive) to count as a recast.
-# Each case has the coach's previous line as context.
+# avoid: the reply must not contain any of these (case-insensitive), e.g. an earlier hint repeated.
+# prev: the coach's previous line, or a list of {role, content} turns when the case needs more history.
 
 - id: past-simple-1
   kind: normal
@@ -124,28 +126,121 @@
   recast: []
 
 - id: turkish-1
-  kind: turkish
+  kind: native
   prev: What did you cook last weekend?
   user: Mantı yaptık, annem de geldi.
   recast: ["manti", "made", "mom", "mother"]
 
 - id: turkish-2
-  kind: turkish
+  kind: native
   prev: Why did you choose freelancing?
   user: Şey, ofiste çalışmak beni çok yoruyordu.
   recast: ["tired", "office"]
 
 - id: turkish-mixed
-  kind: turkish
+  kind: native
   prev: How did the client meeting go?
   user: It was good but müşteri çok fazla revizyon istedi.
   recast: ["revision", "changes"]
 
 - id: turkish-word
-  kind: turkish
+  kind: native
   prev: What's the hardest part of your job?
   user: The hardest part is, nasıl denir, teslim tarihi.
   recast: ["deadline"]
+
+- id: native-es
+  kind: native
+  native: es
+  prev: "What did you do last weekend?"
+  user: "Fui a la playa con mis amigos y comimos pescado."
+  recast: ["beach", "fish"]
+
+- id: native-pt-br
+  kind: native
+  native: pt-BR
+  prev: "How did the client meeting go?"
+  user: "Foi bom, mas o cliente pediu muitas mudanças."
+  recast: ["changes", "revisions"]
+
+- id: native-de
+  kind: native
+  native: de
+  prev: "What's the hardest part of your job?"
+  user: "Ich weiß nicht, wie man das sagt, die Fristen sind immer sehr knapp."
+  recast: ["deadline"]
+
+- id: native-fr
+  kind: native
+  native: fr
+  prev: "Why did you choose freelancing?"
+  user: "Parce que je peux travailler de chez moi."
+  recast: ["from home", "at home"]
+
+- id: native-it
+  kind: native
+  native: it
+  prev: "What did you cook last weekend?"
+  user: "Abbiamo fatto la pizza e mia madre è venuta."
+  recast: ["pizza"]
+
+- id: native-pl
+  kind: native
+  native: pl
+  prev: "How was your weekend?"
+  user: "Byłem w górach z rodziną."
+  recast: ["mountains"]
+
+- id: native-ru
+  kind: native
+  native: ru
+  prev: "What did you do yesterday after work?"
+  user: "Я смотрел фильм с друзьями."
+  recast: ["movie", "film"]
+
+- id: native-ja
+  kind: native
+  native: ja
+  prev: "What do you usually do on Sundays?"
+  user: "日曜日は家でゆっくりしています。"
+  recast: ["home", "relax"]
+
+- id: native-ko
+  kind: native
+  native: ko
+  prev: "Do you prefer working alone or in a team?"
+  user: "저는 혼자 일하는 게 더 좋아요."
+  recast: ["alone", "by myself", "on my own"]
+
+- id: native-zh
+  kind: native
+  native: zh
+  prev: "Where did you go on your last holiday?"
+  user: "我和家人去了海边。"
+  recast: ["beach", "sea"]
+
+# A meta message ("I don't know how to tell the client") written in the native language right after a help hint.
+# The reply should translate it in first person (recast keywords), not hand the earlier hint back (avoid).
+- id: meta-after-hint-tr
+  kind: native
+  prev:
+    - {role: assistant, content: "How would you tell your client that the project will be a week late?"}
+    - {role: user, content: "Help."}
+    - {role: assistant, content: "Try starting with: I wanted to give you a heads-up about..."}
+  user: "Müşteriye nasıl söylerim bilmiyorum."
+  recast: ["don't know how", "do not know how", "how to tell", "how do i tell", "how should i tell", "how i should tell"]
+  avoid: ["heads-up", "heads up"]
+
+- id: meta-after-hint-es
+  kind: native
+  native: es
+  prev:
+    - {role: assistant, content: "How would you tell your client that the project will be a week late?"}
+    - {role: user, content: "Help."}
+    - {role: assistant, content: "Try starting with: I wanted to give you a heads-up about..."}
+  user: "No sé cómo decírselo al cliente."
+  recast: ["don't know how", "do not know how", "how to tell", "how do i tell", "how should i tell", "how i should tell"]
+  avoid: ["heads-up", "heads up"]
 
 - id: help-1
   kind: help

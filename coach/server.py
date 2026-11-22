@@ -12,11 +12,11 @@ from pathlib import Path
 import httpx
 import yaml
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from coach import config, memory
+from coach import config, languages, memory
 from coach.analyze import analyze_session, retry_pending
 from coach.prompts import PROMPT_VERSION, opening, scenario_text, system_prompt
 
@@ -28,6 +28,9 @@ OPTIONS = {"num_ctx": 8192, "num_predict": 150, "temperature": 0.7}
 MAX_TURNS_IN_CONTEXT = 40
 ERROR_MARK = "\n[error: "  # the UI looks for this in the stream
 SCENARIOS = {s["id"]: s for s in yaml.safe_load((ROOT / "scenarios.yaml").read_text())}
+# Seed phrase -> its meanings by language, so warm-up shows a seed in the current native language even when it was
+# stored under another one.
+SEED_MEANINGS = {c["phrase"]: c.get("meaning", "") for s in SCENARIOS.values() for c in s.get("chunks", [])}
 
 log = logging.getLogger("coach")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -63,23 +66,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-app.mount("/static", StaticFiles(directory=ROOT / "web" / "static"), name="static")
 
 
 class StartBody(BaseModel):
     scenario: str
 
 
+class ProfileBody(BaseModel):
+    native_language: str
+
+
 class MessageBody(BaseModel):
     text: str = Field(max_length=2000)
     response_ms: int | None = None
-
-
-@app.get("/")
-def index() -> FileResponse:
-    # Revalidate every time (a cheap 304 via ETag): without it browsers and Safari's Dock apps keep showing the
-    # page from before a deploy. https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control#no-cache
-    return FileResponse(ROOT / "web" / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 @app.post("/api/warm")
@@ -92,9 +91,37 @@ async def warm(request: Request) -> dict:
     return {"ok": True}
 
 
+def get_profile(db) -> dict:
+    return memory.get_profile(db, USER_ID, {"name": config.LEARNER_NAME, "level": config.LEARNER_LEVEL,
+                                            "about": config.LEARNER_ABOUT})
+
+
+@app.get("/api/languages")
+def native_languages() -> list[dict]:
+    return languages.listing()
+
+
+@app.get("/api/profile")
+def profile() -> dict:
+    """native_language is '' until the learner picks one; the UI shows onboarding then."""
+    return {"native_language": get_profile(memory.connect())["native_language"]}
+
+
+@app.put("/api/profile")
+def set_profile(body: ProfileBody) -> dict:
+    if body.native_language not in languages.LANGUAGES:
+        raise HTTPException(400, "unknown language")
+    db = memory.connect()
+    get_profile(db)  # creates the row on first use
+    with db:
+        db.execute("UPDATE profile SET native_language=? WHERE user_id=?", (body.native_language, USER_ID))
+    return {"native_language": body.native_language}
+
+
 @app.get("/api/scenarios")
 def scenarios() -> list[dict]:
-    return [{"id": s["id"], "title": s["title"]} for s in SCENARIOS.values()]
+    native = get_profile(memory.connect())["native_language"]
+    return [{"id": s["id"], "title": languages.pick(s["title"], native)} for s in SCENARIOS.values()]
 
 
 @app.post("/api/session")
@@ -104,14 +131,14 @@ def start(body: StartBody) -> dict:
         raise HTTPException(404, "unknown scenario")
     db = memory.connect()
     with db:
-        prof = memory.get_profile(db, USER_ID, {"name": config.LEARNER_NAME, "level": config.LEARNER_LEVEL,
-                                                "about": config.LEARNER_ABOUT})
+        prof = get_profile(db)
+        native = prof["native_language"]
         for c in sc.get("chunks", []):
-            memory.upsert_chunk(db, USER_ID, c["phrase"], c.get("meaning", ""), due_in_days=0)
+            memory.upsert_chunk(db, USER_ID, c["phrase"], languages.pick(c.get("meaning", ""), native), due_in_days=0)
         due = memory.due_chunks(db, USER_ID)
         sysmsg = system_prompt(
             name=prof["name"], level=prof["level"], profile=prof["about"], scenario=scenario_text(sc, prof["name"]),
-            chunks=[c["phrase"] for c in due], last_summary=prof["last_summary"],
+            chunks=[c["phrase"] for c in due], last_summary=prof["last_summary"], native=native,
         )
         cur = db.execute(
             "INSERT INTO sessions(user_id, scenario, model, prompt_version, system_prompt, offered_chunks, started_at)"
@@ -124,7 +151,8 @@ def start(body: StartBody) -> dict:
     return {
         "session_id": sid,
         "opening": opening(sc, prof["name"]),
-        "warmup": [{"phrase": c["phrase"], "meaning": c["meaning"]} for c in due],
+        "warmup": [{"phrase": c["phrase"],
+                    "meaning": languages.pick(SEED_MEANINGS.get(c["phrase"], c["meaning"]), native)} for c in due],
     }
 
 
@@ -155,10 +183,11 @@ async def message(sid: int, body: MessageBody, request: Request) -> StreamingRes
     s = db.execute("SELECT ended_at FROM sessions WHERE id=?", (sid,)).fetchone()
     if not s or s["ended_at"]:
         raise HTTPException(409, "session not active")
+    lang = memory.detect_lang(text, get_profile(db)["native_language"])
     with db:
         turn_id = db.execute(
             "INSERT INTO turns(session_id, role, content, lang, is_help, response_ms, created_at) VALUES (?,?,?,?,?,?,?)",
-            (sid, "user", text, memory.detect_lang(text), int(memory.is_help(text)), body.response_ms, memory.now()),
+            (sid, "user", text, lang, int(memory.is_help(text)), body.response_ms, memory.now()),
         ).lastrowid
     messages = build_messages(db, sid)
     db.close()
@@ -240,3 +269,22 @@ def progress() -> list[dict]:
     ).fetchall()
     return [{"id": r["id"], "scenario": r["scenario"], "date": r["started_at"][:10], **json.loads(r["metrics"] or "{}")}
             for r in rows]
+
+
+class WebFiles(StaticFiles):
+    """The Next.js static export. Hashed files under _next/static never change, so browsers keep them for a
+    year; HTML and everything else revalidates on each load (a cheap 304 via ETag) so a deploy shows up at once.
+    https://nextjs.org/docs/app/guides/static-exports"""
+
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        res = super().file_response(full_path, stat_result, scope, status_code)
+        immutable = scope["path"].startswith("/_next/static/")
+        res.headers["Cache-Control"] = "public, max-age=31536000, immutable" if immutable else "no-cache"
+        return res
+
+
+# Mounted last so every /api route above wins. Without a build (python -m coach during API work) the API still runs.
+if config.WEB_DIR.is_dir():
+    app.mount("/", WebFiles(directory=config.WEB_DIR, html=True), name="web")
+else:
+    log.warning("no web build in %s: run `bun run build` in frontend/", config.WEB_DIR)

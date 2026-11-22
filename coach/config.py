@@ -37,6 +37,8 @@ OLLAMA_URL: str = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 KEEP_ALIVE: str = os.environ.get("COACH_KEEP_ALIVE", "15m")
 USER_ID: str = os.environ.get("COACH_USER", "default")
 DB_PATH = Path(os.environ.get("COACH_DB", ROOT / "data" / "coach.db"))
+# Built UI (frontend/, `bun run build`). The Docker image copies it to the same place.
+WEB_DIR = Path(os.environ.get("COACH_WEB", ROOT / "frontend" / "out"))
 # Personal material (chat exports, the friend persona). Gitignored with the rest of data/; missing means "feature off".
 PERSONAL_DIR = Path(os.environ.get("COACH_PERSONAL", DB_PATH.parent / "personal"))
 PERSONA_PATH = PERSONAL_DIR / "friend-persona.json"

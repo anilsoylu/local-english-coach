@@ -1,0 +1,50 @@
+{
+  "coachApp": {
+    "thinking": "Sam myśli…",
+    "end": "Zakończ",
+    "confirmEnd": "Na pewno?",
+    "newSession": "Nowa sesja",
+    "back": "Wstecz",
+    "language": "Język",
+    "chat": "Czat",
+    "message": "Twoja wiadomość",
+    "send": "Wyślij",
+    "wait": "Czekaj",
+    "stuck": "Podpowiedz"
+  },
+  "session": {
+    "unreachable": "Nie udało się połączyć z serwerem.",
+    "startFailed": "Nie udało się rozpocząć sesji. Dotknij sytuacji jeszcze raz.",
+    "sendFailed": "Błąd połączenia. Twoja wiadomość jest w polu tekstowym. Wyślij ją ponownie."
+  },
+  "scenarioPicker": {
+    "title": "O czym dziś porozmawiamy?",
+    "intro": "Wybierz sytuację i pisz po angielsku albo mów przez mikrofon klawiatury. Jeśli utkniesz, napisz w swoim języku albo dotknij „Podpowiedz”.",
+    "reload": "Odśwież"
+  },
+  "languagePicker": {
+    "welcome": "Witaj w English Coach",
+    "title": "Twój język ojczysty",
+    "intro": "Wybierz język, który znasz najlepiej. Menu i raporty z sesji będą w nim.",
+    "unreachable": "Nie udało się połączyć z serwerem.",
+    "saveFailed": "Nie udało się zapisać wyboru. Spróbuj ponownie.",
+    "reload": "Odśwież"
+  },
+  "warmupCard": {
+    "title": "Spróbuj użyć dziś"
+  },
+  "reportCard": {
+    "title": "Raport z sesji",
+    "analyzing": "Analizuję, to może potrwać kilka minut…",
+    "timeout": "Raport jest jeszcze przygotowywany. Odśwież stronę za chwilę, pojawi się tutaj, gdy będzie gotowy.",
+    "messages": "wiadomości",
+    "avgWords": "słów na wiadomość",
+    "responseTime": "czas odpowiedzi (s)",
+    "stuck": "utknięć",
+    "chunksUsed": "użytych zwrotów",
+    "corrections": "Poprawki",
+    "natural": "Bardziej naturalnie",
+    "newChunks": "Nowe zwroty",
+    "tooShort": "Sesja była za krótka, by ją przeanalizować."
+  }
+}

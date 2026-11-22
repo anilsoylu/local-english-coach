@@ -4,7 +4,8 @@
 #   sudo ./setup.sh --tailscale   # also share it with your tailnet through Tailscale Serve (your other devices)
 #   sudo ./setup.sh --host IP --port N
 # What it does: installs Ollama natively (if missing) with the tuned settings in
-# deploy/ollama.override.conf, picks models for your VRAM, writes config.yaml if it doesn't exist,
+# deploy/ollama.override.conf, picks models for your VRAM, writes config.yaml (or fills in the models and server
+# settings an existing one leaves out),
 # pulls the models, starts the app with Docker Compose (auto-starts on boot) and adds a daily backup.
 set -euo pipefail
 
@@ -61,6 +62,20 @@ for _ in $(seq 1 30); do curl -sf http://127.0.0.1:11434/api/version >/dev/null 
 ollama --version
 
 say "config.yaml"
+read_cfg() { awk -v k="  $1:" 'index($0, k) == 1 {sub(k, ""); gsub(/[ "]/, ""); print; exit}' "$DIR/config.yaml"; }
+# set_cfg SECTION KEY VALUE [force]: sets "  KEY: VALUE" under SECTION. An existing value is replaced only with force;
+# a missing key or section is added. Every other line stays as the user wrote it.
+set_cfg() {
+  local f="$DIR/config.yaml"
+  if grep -q "^  $2:" "$f"; then
+    if [ -n "${4:-}" ] || [ -z "$(read_cfg "$2")" ]; then sed -i "s|^  $2:.*|  $2: $3|" "$f"; fi
+  elif grep -q "^$1:" "$f"; then
+    sed -i "/^$1:/a\\  $2: $3" "$f"
+  else
+    [ -z "$(tail -c1 "$f")" ] || echo >> "$f"
+    printf '%s:\n  %s: %s\n' "$1" "$2" "$3" >> "$f"
+  fi
+}
 if [ ! -f "$DIR/config.yaml" ]; then
   cat > "$DIR/config.yaml" <<EOF
 # Written by setup.sh. See config.example.yaml for every option.
@@ -77,11 +92,13 @@ server:
 EOF
   echo "created (edit learner: name/about to personalize)"
 else
-  echo "kept existing config.yaml"
-  [ -n "$HOST" ] && sed -i "s/^  host: .*/  host: $HOST/" "$DIR/config.yaml"
-  [ -n "$PORT" ] && sed -i "s/^  port: .*/  port: $PORT/" "$DIR/config.yaml"
+  echo "kept existing config.yaml, filling in any missing models and server settings"
+  # Reverse order: a key added to an existing section goes right below its header.
+  set_cfg models analysis "$ANALYSIS"
+  set_cfg models chat "$CHAT"
+  set_cfg server port "${PORT:-8765}" ${PORT:+force}
+  set_cfg server host "${HOST:-127.0.0.1}" ${HOST:+force}
 fi
-read_cfg() { awk -v k="  $1:" 'index($0, k) == 1 {sub(k, ""); gsub(/[ "]/, ""); print; exit}' "$DIR/config.yaml"; }
 CHAT="$(read_cfg chat)"; ANALYSIS="$(read_cfg analysis)"
 CFG_HOST="$(read_cfg host)"; CFG_PORT="$(read_cfg port)"
 echo "chat=$CHAT analysis=$ANALYSIS listen=$CFG_HOST:$CFG_PORT"

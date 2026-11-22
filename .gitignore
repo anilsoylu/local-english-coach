@@ -6,3 +6,4 @@ bench/results/
 config.yaml
 .env
 tests/screenshots/
+.claude/settings.local.json

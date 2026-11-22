@@ -6,3 +6,6 @@ backups
 bench/results
 config.yaml
 .env
+frontend/node_modules
+frontend/.next
+frontend/out

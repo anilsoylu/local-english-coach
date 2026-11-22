@@ -21,9 +21,10 @@ os.environ.update(ENV)  # before importing coach, which reads its paths at impor
 shutil.copytree(ROOT / "examples" / "chats", TMP / "personal" / "chats")
 sys.path.insert(0, str(ROOT))
 
-from coach import chats, prompts  # noqa: E402
+from coach import chats, memory, prompts  # noqa: E402
 
 ME = "Deniz Example"
+NATIVE = "tr"  # the example exports mix English with Turkish
 # id -> (kind, messages kept, learner lines) for each example file
 EXPECTED = {
     "1000000000000001": ("instagram", 11, 5),
@@ -41,7 +42,7 @@ def parsing() -> list[str]:
     for c in found:
         parts, msgs = c.read()
         texts = [t for _, t in msgs]
-        got = (c.kind, len(msgs), len(chats.learner_lines(msgs, ME)))
+        got = (c.kind, len(msgs), len(chats.learner_lines(msgs, ME, NATIVE)))
         want = EXPECTED.get(c.id)
         if want is None:
             want = (c.kind, *BY_KIND[c.kind].pop(0)) if BY_KIND.get(c.kind) else None
@@ -49,7 +50,7 @@ def parsing() -> list[str]:
             failures.append(f"{c.kind} {c.id}: (kind, messages, learner lines) = {got}, expected {want}")
         if any(chats.SYSTEM_TEXT.match(t) for t in texts) or any("omitted" in t or "encrypted" in t for t in texts):
             failures.append(f"{c.kind} {c.id}: app notices kept")
-        if any("Hafta sonu" in t or t.startswith("Tamam") for t in chats.learner_lines(msgs, ME)):
+        if any("Hafta sonu" in t or t.startswith("Tamam") for t in chats.learner_lines(msgs, ME, NATIVE)):
             failures.append(f"{c.kind} {c.id}: Turkish line counted as English")
     ig = chats.find_chat("1000000000000001", found).read()[1]
     if not any("Çeşme" in t for _, t in ig) or not any("😄" in t for _, t in ig):
@@ -67,6 +68,10 @@ def parsing() -> list[str]:
 
 def full_import() -> list[str]:
     failures = []
+    db = memory.connect()  # the learner picked Turkish in the UI
+    memory.get_profile(db, "test", {})
+    with db:
+        db.execute("UPDATE profile SET native_language=? WHERE user_id='test'", (NATIVE,))
     run = subprocess.run([sys.executable, "-m", "coach.chats", "import", "1000000000000001"], cwd=ROOT, env=ENV,
                          capture_output=True, text=True, timeout=900)
     print(run.stdout, run.stderr[-2000:])

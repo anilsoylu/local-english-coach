@@ -1,0 +1,50 @@
+{
+  "coachApp": {
+    "thinking": "Sam 正在思考…",
+    "end": "结束",
+    "confirmEnd": "确定吗？",
+    "newSession": "新会话",
+    "back": "返回",
+    "language": "语言",
+    "chat": "聊天",
+    "message": "你的消息",
+    "send": "发送",
+    "wait": "等待",
+    "stuck": "我卡住了"
+  },
+  "session": {
+    "unreachable": "无法连接服务器。",
+    "startFailed": "无法开始会话，请再点一次情境。",
+    "sendFailed": "连接出错，你的消息还在输入框里，请重新发送。"
+  },
+  "scenarioPicker": {
+    "title": "今天聊点什么？",
+    "intro": "选一个情境，用英语写，或者用键盘上的麦克风说话。卡住了就用你的母语写，或者点“我卡住了”。",
+    "reload": "刷新"
+  },
+  "languagePicker": {
+    "welcome": "欢迎来到 English Coach",
+    "title": "你的母语",
+    "intro": "选择你最熟悉的语言。菜单和会话报告都会用这种语言显示。",
+    "unreachable": "无法连接服务器。",
+    "saveFailed": "无法保存你的选择，请重试。",
+    "reload": "刷新"
+  },
+  "warmupCard": {
+    "title": "今天试着用一用"
+  },
+  "reportCard": {
+    "title": "会话报告",
+    "analyzing": "正在分析，可能需要几分钟…",
+    "timeout": "报告还在生成中。过一会儿刷新页面，准备好后会显示在这里。",
+    "messages": "条消息",
+    "avgWords": "平均词数",
+    "responseTime": "回复时间（秒）",
+    "stuck": "卡住次数",
+    "chunksUsed": "用到的句型",
+    "corrections": "纠正",
+    "natural": "更地道的说法",
+    "newChunks": "新句型",
+    "tooShort": "会话太短，无法分析。"
+  }
+}

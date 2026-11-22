@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 import httpx
 
-from coach import config, memory
+from coach import config, languages, memory
 
 OLLAMA = config.OLLAMA_URL
 ANALYSIS_MODEL = config.ANALYSIS_MODEL
@@ -30,8 +30,8 @@ SCHEMA = {
                 "kind": {"type": "string"},
                 "original": {"type": "string"},
                 "better": {"type": "string"},
-                "note_tr": {"type": "string"},
-            }, "required": ["kind", "original", "better", "note_tr"]},
+                "note": {"type": "string"},
+            }, "required": ["kind", "original", "better", "note"]},
         },
         "natural": {
             "type": "array", "maxItems": 3,
@@ -44,42 +44,67 @@ SCHEMA = {
             "type": "array", "maxItems": 3,
             "items": {"type": "object", "properties": {
                 "phrase": {"type": "string"},
-                "meaning_tr": {"type": "string"},
+                "meaning": {"type": "string"},
                 "example": {"type": "string"},
-            }, "required": ["phrase", "meaning_tr", "example"]},
+            }, "required": ["phrase", "meaning", "example"]},
         },
         "recurring_errors": {"type": "array", "maxItems": 5, "items": {"type": "string"}},
         "level_estimate": {"type": "string", "enum": ["A2", "A2+", "B1", "B1+", "B2"]},
         "summary": {"type": "string"},
-        "feedback_tr": {"type": "string"},
+        "feedback": {"type": "string"},
     },
-    "required": ["errors", "natural", "chunks", "recurring_errors", "level_estimate", "summary", "feedback_tr"],
+    "required": ["errors", "natural", "chunks", "recurring_errors", "level_estimate", "summary", "feedback"],
 }
 
 PROMPT = """\
-You are reviewing an English speaking-practice chat between a coach and {name}, a Turkish speaker (about {level}). \
+You are reviewing an English speaking-practice chat between a coach and {name}, {speaker} (about {level}). \
 The goal is fluent everyday and work English, not perfect grammar.
 
 Previously known recurring errors: {recurring}
 Phrases {name} is already practicing (don't suggest these as new chunks): {known}
 Lines marked [asked for help] mean {name} was stuck and asked for a hint. The word "help" there is not part of the sentence.
-Lines marked [Turkish] were written in Turkish on purpose to get the English version. Don't list them as errors.
-
+{native_lines}
 Transcript ({name}'s lines are marked USER):
 {transcript}
 
 Return JSON with:
-- errors: the 3-4 most important mistakes in USER lines, the ones that hurt understanding or repeat. Quote the original exactly, give the corrected sentence, and a one-sentence explanation in simple Turkish (note_tr). Skip tiny slips. If a USER line is correct, don't invent errors.
+- errors: the 3-4 most important mistakes in USER lines, the ones that hurt understanding or repeat. Quote the original exactly, give the corrected sentence, and a one-sentence explanation in simple {language} (note). Skip tiny slips. If a USER line is correct, don't invent errors.
 - natural: up to 3 USER sentences that are correct but sound unnatural, with how a native speaker would say it in conversation.
-- chunks: 2-3 useful spoken phrases for situations in this chat that {name} didn't know (not single words). Meaning in Turkish, example in English.
+- chunks: 2-3 useful spoken phrases for situations in this chat that {name} didn't know (not single words). Meaning in simple {language}, example in English.
 - recurring_errors: updated short list (English, max 5) of error patterns that keep coming back, merging the old list with what you saw.
 - level_estimate: from the USER lines.
 - summary: 2 sentences in English for the coach to read next time: what {name} talked about and what to practice.
-- feedback_tr: 2-3 short sentences in Turkish, speaking directly to {name} with "sen" (never "siz", never third person): \
+- feedback: 2-3 short sentences in {language}, speaking directly to {name}: \
 one concrete thing that went well and one thing to focus on. Only praise what the USER lines actually show. \
-Plain and specific. No praise words like "harika", "mükemmel", no exclamation marks, no lists, no dashes.
+Plain and specific. No praise words like "great" or "perfect", no exclamation marks, no lists, no dashes.
 
-Only judge USER lines. Use only things that appear in the transcript. Write every Turkish field with "sen", not "siz"."""
+Only judge USER lines. Use only things that appear in the transcript. \
+In every {language} field, address {name} informally in the second person, the way a friend would in {language}."""
+
+NATIVE_LINES = "Lines marked [{language}] were written in {language} on purpose to get the English version. Don't list them as errors.\n"
+
+
+def transcript(turns: list[dict], native: str) -> str:
+    """USER lines carry [asked for help] or the native language's tag ("[Turkish]"), which the prompt explains."""
+    native_tag = f" [{languages.english_name(native)}]"
+
+    def line(t: dict) -> str:
+        if t["role"] != "user":
+            return f"COACH: {t['content']}"
+        mark = " [asked for help]" if t["is_help"] else native_tag if t["lang"] in ("native", "mixed") else ""
+        return f"USER{mark}: {t['content']}"
+
+    return "\n".join(line(t) for t in turns)
+
+
+def analysis_prompt(turns: list[dict], native: str, name: str, level: str, recurring: list[str],
+                    known: list[str]) -> str:
+    language = languages.english_name(native)
+    english = languages.resolve(native) == languages.DEFAULT
+    return PROMPT.format(name=name or "the learner", speaker=languages.speaker(native), level=level, language=language,
+                         recurring=", ".join(recurring) or "none yet", known="; ".join(known) or "none",
+                         native_lines="" if english else NATIVE_LINES.format(language=language),
+                         transcript=transcript(turns, native))
 
 
 def text_metrics(turns: list[dict]) -> dict:
@@ -91,7 +116,7 @@ def text_metrics(turns: list[dict]) -> dict:
         "avg_words": round(statistics.mean(words), 1) if words else 0,
         "long_turn_pct": round(100 * sum(w >= 12 for w in words) / len(words)) if words else 0,
         "median_response_s": round(statistics.median(times) / 1000, 1) if times else None,
-        "turkish_turns": sum(t["lang"] == "tr" for t in user),
+        "native_turns": sum(t["lang"] == "native" for t in user),
         "mixed_turns": sum(t["lang"] == "mixed" for t in user),
         "help_count": sum(t["is_help"] for t in user),
     }
@@ -110,7 +135,7 @@ def call_model(prompt: str, model: str = ANALYSIS_MODEL, schema: dict = SCHEMA) 
 
 def clean_report(rep: dict, turns: list[dict], known: list[str]) -> None:
     """The model doesn't reliably follow the prompt, so enforce the rules in code:
-    quotes must come from normal English USER turns (not help/Turkish, not the coach),
+    quotes must come from normal English USER turns (not help or native-language turns, not the coach),
     no duplicates, and no 'new' chunks the learner already practices."""
     eligible = [memory.normalize(t["content"]) for t in turns
                 if t["role"] == "user" and not t["is_help"] and t["lang"] == "en"]
@@ -194,27 +219,18 @@ def _analyze(sid: int) -> None:
         return
 
     prof = memory.get_profile(db, s["user_id"], {})
-    def line(t: dict) -> str:
-        if t["role"] != "user":
-            return f"COACH: {t['content']}"
-        tag = " [asked for help]" if t["is_help"] else " [Turkish]" if t["lang"] in ("tr", "mixed") else ""
-        return f"USER{tag}: {t['content']}"
-
-    transcript = "\n".join(line(t) for t in turns)
     known = [r["phrase"] for r in db.execute("SELECT phrase FROM chunks WHERE user_id=?", (s["user_id"],))]
     log.info("analyzing session %s with %s (%d turns)", sid, ANALYSIS_MODEL, len(turns))
-    rep = call_model(PROMPT.format(name=prof["name"] or "the learner", level=prof["level"],
-                                   recurring=", ".join(prof["recurring_errors"]) or "none yet",
-                                   known="; ".join(known) or "none",
-                                   transcript=transcript))
+    rep = call_model(analysis_prompt(turns, prof["native_language"], prof["name"], prof["level"],
+                                     prof["recurring_errors"], known))
     clean_report(rep, turns, known)
 
     with db:
         for e in rep["errors"]:
             db.execute("INSERT INTO errors(session_id, kind, original, better, note) VALUES (?,?,?,?,?)",
-                       (sid, e["kind"], e["original"], e["better"], e["note_tr"]))
+                       (sid, e["kind"], e["original"], e["better"], e["note"]))
         for c in rep.get("chunks", []):
-            memory.upsert_chunk(db, s["user_id"], c["phrase"], c["meaning_tr"], c["example"])
+            memory.upsert_chunk(db, s["user_id"], c["phrase"], c["meaning"], c["example"])
         db.execute("UPDATE profile SET recurring_errors=?, last_summary=?, level=? WHERE user_id=?",
                    (json.dumps(rep.get("recurring_errors", [])), rep.get("summary", ""),
                     rep.get("level_estimate", prof["level"]), s["user_id"]))

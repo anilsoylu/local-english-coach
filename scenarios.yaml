@@ -1,125 +1,583 @@
-# id: stable key. title: shown in UI (Turkish). role/setting: given to the model.
+# id: stable key. title: shown in the UI. role/setting: given to the model.
 # opening: first line the coach says. chunks: phrases seeded into spaced repetition when this scenario is used.
+# title and a chunk's meaning are in the learner's native language: a map by language code ({en: ..., tr: ...},
+# codes from coach/languages.py) that falls back to en, or a plain string used for every language.
 # persona: true adds the style note from data/personal/friend-persona.json when it exists (see coach/chats.py).
 
 - id: smalltalk
-  title: Sohbet (hafta sonu, yemek, planlar)
+  title:
+    en: Small talk (weekend, food, plans)
+    tr: Sohbet (hafta sonu, yemek, planlar)
+    es: Charla informal (fin de semana, comida, planes)
+    pt-BR: Papo informal (fim de semana, comida, planos)
+    de: Smalltalk (Wochenende, Essen, Pläne)
+    fr: Discussion légère (week-end, cuisine, projets)
+    it: Due chiacchiere (weekend, cibo, progetti)
+    pl: Pogawędka (weekend, jedzenie, plany)
+    ru: Светская беседа (выходные, еда, планы)
+    ja: 雑談（週末、食べ物、予定）
+    ko: 가벼운 대화 (주말, 음식, 계획)
+    zh: 闲聊（周末、美食、计划）
   role: a friendly coworker from another country, chatting before a meeting
   setting: Casual small talk about the weekend, food, hobbies and plans.
   opening: "Hey {name}! How was your weekend?"
   chunks:
     - phrase: "To be honest, ..."
-      meaning: "Açıkçası, ..."
+      meaning:
+        en: "Honestly, ..."
+        tr: "Açıkçası, ..."
+        es: "Sinceramente, ..."
+        pt-BR: "Sinceramente, ..."
+        de: "Ehrlich gesagt, ..."
+        fr: "Franchement, ..."
+        it: "Onestamente, ..."
+        pl: "Szczerze mówiąc, ..."
+        ru: "Честно говоря, ..."
+        ja: "正直に言うと、..."
+        ko: "솔직히, ..."
+        zh: "说实话，..."
     - phrase: "I've been meaning to ..."
-      meaning: "Bir süredir ... yapmayı düşünüyorum"
+      meaning:
+        en: "I've wanted to do ... for a while"
+        tr: "Bir süredir ... yapmayı düşünüyorum"
+        es: "Hace tiempo que quiero hacer ..."
+        pt-BR: "Faz um tempo que quero fazer ..."
+        de: "Ich wollte ... schon länger machen"
+        fr: "J'ai envie de faire ... depuis un moment"
+        it: "Ho voglia di fare ... da un po'"
+        pl: "Od jakiegoś czasu chcę zrobić ..."
+        ru: "Давно хочу ..."
+        ja: "前から...をしたいと思っていた"
+        ko: "오랫동안 ...해 보고 싶었어요"
+        zh: "我一直想做……"
     - phrase: "It was nothing special, just ..."
-      meaning: "Özel bir şey yoktu, sadece ..."
+      meaning:
+        en: "Nothing special happened, only ..."
+        tr: "Özel bir şey yoktu, sadece ..."
+        es: "No pasó nada especial, solo ..."
+        pt-BR: "Nada de especial aconteceu, só ..."
+        de: "Nichts Besonderes ist passiert, nur ..."
+        fr: "Rien de spécial, juste ..."
+        it: "Niente di speciale, solo ..."
+        pl: "Nic specjalnego, tylko ..."
+        ru: "Ничего особенного, просто ..."
+        ja: "特に何もなくて、ただ..."
+        ko: "특별한 건 없었고, 그냥 ..."
+        zh: "没什么特别的，只是……"
 
 - id: upwork-discovery
-  title: Upwork müşteri görüşmesi (ihtiyacı anlama)
+  title:
+    en: Upwork client call (understanding the need)
+    tr: Upwork müşteri görüşmesi (ihtiyacı anlama)
+    es: Llamada con cliente de Upwork (entender la necesidad)
+    pt-BR: Chamada com cliente do Upwork (entender a necessidade)
+    de: Upwork-Kundengespräch (Bedarf verstehen)
+    fr: Appel client Upwork (comprendre le besoin)
+    it: Chiamata con cliente di Upwork (capire il bisogno)
+    pl: Rozmowa z klientem z Upwork (poznanie potrzeb)
+    ru: Звонок клиента с Upwork (выяснение задачи)
+    ja: Upworkのクライアントとの通話（ニーズの確認）
+    ko: Upwork 클라이언트 통화 (요구 파악)
+    zh: Upwork客户通话（了解需求）
   role: a US startup founder on a first video call with a freelancer they found on Upwork. You need a booking app. Ask about experience, approach and timeline, one thing at a time.
   setting: First client call. {name} should ask good questions and explain how they would work.
   opening: "Hi {name}, thanks for jumping on the call. So, I saw your profile. Can you tell me a bit about yourself?"
   chunks:
     - phrase: "Could you walk me through ...?"
-      meaning: "Bana ... adım adım anlatır mısın?"
+      meaning:
+        en: "Can you explain ... to me step by step?"
+        tr: "Bana ... adım adım anlatır mısın?"
+        es: "¿Me explicas ... paso a paso?"
+        pt-BR: "Você me explica ... passo a passo?"
+        de: "Kannst du mir ... Schritt für Schritt erklären?"
+        fr: "Tu peux m'expliquer ... étape par étape ?"
+        it: "Mi spieghi ... passo dopo passo?"
+        pl: "Możesz mi krok po kroku wyjaśnić ...?"
+        ru: "Можешь пошагово объяснить ...?"
+        ja: "...を一つずつ説明してもらえますか？"
+        ko: "...을(를) 단계별로 설명해 줄래요?"
+        zh: "你能一步一步给我讲讲……吗？"
     - phrase: "Just to make sure I understand, ..."
-      meaning: "Doğru anladığımdan emin olmak için, ..."
+      meaning:
+        en: "To check that I understood correctly, ..."
+        tr: "Doğru anladığımdan emin olmak için, ..."
+        es: "Para confirmar que entendí bien, ..."
+        pt-BR: "Pra confirmar se entendi certo, ..."
+        de: "Um sicherzugehen, dass ich richtig verstanden habe, ..."
+        fr: "Pour vérifier que j'ai bien compris, ..."
+        it: "Per essere sicuro di aver capito bene, ..."
+        pl: "Żeby sprawdzić, czy dobrze zrozumiałem, ..."
+        ru: "Чтобы убедиться, что я правильно понял, ..."
+        ja: "正しく理解できているか確認すると、..."
+        ko: "제가 제대로 이해했는지 확인하자면, ..."
+        zh: "为了确认我理解得对，……"
     - phrase: "What does success look like for you?"
-      meaning: "Senin için başarı neye benziyor?"
+      meaning:
+        en: "What result would make you happy?"
+        tr: "Senin için başarı neye benziyor?"
+        es: "¿Qué resultado te haría feliz?"
+        pt-BR: "Qual resultado deixaria você feliz?"
+        de: "Welches Ergebnis würde dich glücklich machen?"
+        fr: "Quel résultat te rendrait content ?"
+        it: "Quale risultato ti renderebbe felice?"
+        pl: "Jaki efekt by cię ucieszył?"
+        ru: "Какой результат тебя бы порадовал?"
+        ja: "どんな結果があれば満足ですか？"
+        ko: "어떤 결과가 나오면 좋겠어요?"
+        zh: "什么结果会让你满意？"
     - phrase: "I've worked on something similar before."
-      meaning: "Daha önce benzer bir şey üzerinde çalıştım."
+      meaning:
+        en: "I have done a similar project before."
+        tr: "Daha önce benzer bir şey üzerinde çalıştım."
+        es: "Ya he hecho un proyecto parecido."
+        pt-BR: "Já fiz um projeto parecido antes."
+        de: "Ich habe schon mal ein ähnliches Projekt gemacht."
+        fr: "J'ai déjà fait un projet similaire."
+        it: "Ho già fatto un progetto simile."
+        pl: "Robiłem już podobny projekt."
+        ru: "Я уже делал похожий проект."
+        ja: "以前、似たプロジェクトをやったことがあります。"
+        ko: "전에 비슷한 프로젝트를 해 본 적이 있어요."
+        zh: "我以前做过类似的项目。"
 
 - id: upwork-price
-  title: Fiyat ve süre konuşma
+  title:
+    en: Talking price and timeline
+    tr: Fiyat ve süre konuşma
+    es: Hablar de precio y plazos
+    pt-BR: Conversar sobre preço e prazo
+    de: Über Preis und Zeitplan sprechen
+    fr: Parler du prix et des délais
+    it: Parlare di prezzo e tempi
+    pl: Rozmowa o cenie i terminie
+    ru: Обсуждение цены и сроков
+    ja: 料金と納期の相談
+    ko: 가격과 일정 이야기
+    zh: 谈价格和时间
   role: a small business owner who likes {name}'s work but thinks the price is a bit high. Push back politely once or twice.
   setting: Negotiating price, scope and deadline for a web project.
   opening: "Okay, I looked at your proposal. Honestly, the price is a bit more than I expected. Can you explain how you got to that number?"
   chunks:
     - phrase: "The thing is, ..."
-      meaning: "Mesele şu ki, ..."
+      meaning:
+        en: "The main point is, ..."
+        tr: "Mesele şu ki, ..."
+        es: "Lo importante es que ..."
+        pt-BR: "O ponto é que ..."
+        de: "Der springende Punkt ist, dass ..."
+        fr: "Le fond du problème, c'est que ..."
+        it: "Il punto è che ..."
+        pl: "Chodzi o to, że ..."
+        ru: "Дело в том, что ..."
+        ja: "要するに、..."
+        ko: "핵심은 ..."
+        zh: "问题是……"
     - phrase: "If we reduce the scope, ..."
-      meaning: "Kapsamı daraltırsak, ..."
+      meaning:
+        en: "If we do less work in the project, ..."
+        tr: "Kapsamı daraltırsak, ..."
+        es: "Si hacemos menos trabajo en el proyecto, ..."
+        pt-BR: "Se fizermos menos trabalho no projeto, ..."
+        de: "Wenn wir beim Projekt weniger machen, ..."
+        fr: "Si on réduit le travail sur le projet, ..."
+        it: "Se facciamo meno lavoro sul progetto, ..."
+        pl: "Jeśli zrobimy mniej w projekcie, ..."
+        ru: "Если сделать в проекте меньше, ..."
+        ja: "プロジェクトの作業を減らすなら、..."
+        ko: "프로젝트 작업을 줄이면, ..."
+        zh: "如果项目少做一些，……"
     - phrase: "I can be flexible on ..."
-      meaning: "... konusunda esnek olabilirim"
+      meaning:
+        en: "I can change ... a little for you"
+        tr: "... konusunda esnek olabilirim"
+        es: "Puedo ser flexible con ... por ti"
+        pt-BR: "Posso mudar um pouco ... por você"
+        de: "Bei ... kann ich dir ein bisschen entgegenkommen"
+        fr: "Je peux un peu changer ... pour toi"
+        it: "Posso cambiare un po' ... per te"
+        pl: "Mogę trochę zmienić ... dla ciebie"
+        ru: "Я могу немного изменить ... для тебя"
+        ja: "...は少し融通をきかせられます"
+        ko: "...은(는) 조금 조정할 수 있어요"
+        zh: "...我可以为你稍微调整一下"
     - phrase: "Let me get back to you on that."
-      meaning: "Bu konuda sana dönerim."
+      meaning:
+        en: "I'll answer you about this later."
+        tr: "Bu konuda sana dönerim."
+        es: "Te respondo sobre eso más tarde."
+        pt-BR: "Te respondo sobre isso depois."
+        de: "Ich melde mich dazu bei dir."
+        fr: "Je te reviens là-dessus."
+        it: "Ti faccio sapere su questo."
+        pl: "Odezwę się w tej sprawie."
+        ru: "Я отвечу на это позже."
+        ja: "それについては後で返事しますね。"
+        ko: "그건 나중에 알려 드릴게요."
+        zh: "这件事我稍后回复你。"
 
 - id: upwork-delay
-  title: Gecikme ve sorun bildirme
+  title:
+    en: Reporting a delay or a problem
+    tr: Gecikme ve sorun bildirme
+    es: Avisar de un retraso o un problema
+    pt-BR: Avisar sobre um atraso ou problema
+    de: Eine Verzögerung oder ein Problem melden
+    fr: Signaler un retard ou un problème
+    it: Segnalare un ritardo o un problema
+    pl: Zgłaszanie opóźnienia lub problemu
+    ru: Сообщить о задержке или проблеме
+    ja: 遅れや問題の報告
+    ko: 지연이나 문제 알리기
+    zh: 汇报延期或问题
   role: a client waiting for a feature. You are a little worried about the deadline but friendly.
   setting: "{name} has to explain a delay or a technical problem and propose a new plan."
   opening: "Hi {name}, quick check-in. Are we still on track for Friday's demo?"
   chunks:
     - phrase: "I wanted to give you a heads-up about ..."
-      meaning: "... hakkında önceden haber vermek istedim"
+      meaning:
+        en: "I wanted to tell you early about ..."
+        tr: "... hakkında önceden haber vermek istedim"
+        es: "Quería avisarte con tiempo sobre ..."
+        pt-BR: "Queria te avisar com antecedência sobre ..."
+        de: "Ich wollte dir früh Bescheid geben über ..."
+        fr: "Je voulais te prévenir tôt au sujet de ..."
+        it: "Volevo avvisarti in anticipo di ..."
+        pl: "Chciałem cię wcześniej uprzedzić o ..."
+        ru: "Хочу заранее предупредить тебя о ..."
+        ja: "...について早めにお知らせしたいと思いまして"
+        ko: "...에 대해 미리 알려 드리고 싶었어요"
+        zh: "想提前跟你说一下……的事"
     - phrase: "We ran into an issue with ..."
-      meaning: "... ile ilgili bir sorunla karşılaştık"
+      meaning:
+        en: "We found a problem with ..."
+        tr: "... ile ilgili bir sorunla karşılaştık"
+        es: "Encontramos un problema con ..."
+        pt-BR: "Encontramos um problema com ..."
+        de: "Wir haben ein Problem mit ... festgestellt"
+        fr: "On a rencontré un problème avec ..."
+        it: "Abbiamo riscontrato un problema con ..."
+        pl: "Natrafiliśmy na problem z ..."
+        ru: "Мы столкнулись с проблемой в ..."
+        ja: "...に問題が見つかりました"
+        ko: "...에 문제가 생겼어요"
+        zh: "我们在……上遇到了一个问题"
     - phrase: "I'll keep you posted."
-      meaning: "Seni gelişmelerden haberdar ederim."
+      meaning:
+        en: "I'll tell you when there is news."
+        tr: "Seni gelişmelerden haberdar ederim."
+        es: "Te aviso cuando haya novedades."
+        pt-BR: "Te aviso quando tiver novidades."
+        de: "Ich sage dir Bescheid, wenn es Neuigkeiten gibt."
+        fr: "Je te tiens au courant s'il y a du nouveau."
+        it: "Ti aggiorno quando ci sono novità."
+        pl: "Dam znać, kiedy będą nowości."
+        ru: "Сообщу, когда будут новости."
+        ja: "進展があったらお知らせします。"
+        ko: "진행 상황이 생기면 알려 드릴게요."
+        zh: "有进展我会告诉你。"
 
 - id: standup
-  title: Günlük toplantı (stand-up)
+  title:
+    en: Daily stand-up
+    tr: Günlük toplantı (stand-up)
+    es: Reunión diaria (stand-up)
+    pt-BR: Reunião diária (stand-up)
+    de: Tägliches Stand-up
+    fr: Daily (stand-up quotidien)
+    it: Daily (stand-up quotidiano)
+    pl: Codzienny stand-up
+    ru: Ежедневный стендап
+    ja: デイリースタンドアップ
+    ko: 데일리 스탠드업
+    zh: 每日站会
   role: a team lead running a short daily stand-up in a remote dev team
   setting: "{name} says what they did yesterday, what they will do today, and any blockers."
   opening: "Morning! Let's start with you, {name}. What did you work on yesterday?"
   chunks:
     - phrase: "I'm currently working on ..."
-      meaning: "Şu anda ... üzerinde çalışıyorum"
+      meaning:
+        en: "Right now I'm working on ..."
+        tr: "Şu anda ... üzerinde çalışıyorum"
+        es: "Ahora mismo estoy trabajando en ..."
+        pt-BR: "Agora estou trabalhando em ..."
+        de: "Gerade arbeite ich an ..."
+        fr: "En ce moment, je travaille sur ..."
+        it: "In questo momento sto lavorando su ..."
+        pl: "Obecnie pracuję nad ..."
+        ru: "Сейчас я работаю над ..."
+        ja: "今は...に取り組んでいます"
+        ko: "지금은 ...을(를) 작업하고 있어요"
+        zh: "我现在在做……"
     - phrase: "I'm blocked on ..."
-      meaning: "... yüzünden ilerleyemiyorum"
+      meaning:
+        en: "I can't continue because of ..."
+        tr: "... yüzünden ilerleyemiyorum"
+        es: "No puedo seguir por ..."
+        pt-BR: "Não consigo continuar por causa de ..."
+        de: "Ich komme wegen ... nicht weiter"
+        fr: "Je ne peux pas avancer à cause de ..."
+        it: "Non posso andare avanti per via di ..."
+        pl: "Nie mogę iść dalej przez ..."
+        ru: "Не могу продолжать из-за ..."
+        ja: "...のせいで先に進めません"
+        ko: "...때문에 진행을 못 하고 있어요"
+        zh: "因为……，我没法继续"
     - phrase: "It should be done by ..."
-      meaning: "... kadar bitmiş olmalı"
+      meaning:
+        en: "It will probably be finished by ..."
+        tr: "... kadar bitmiş olmalı"
+        es: "Probablemente estará listo para ..."
+        pt-BR: "Deve estar pronto até ..."
+        de: "Es sollte bis ... fertig sein"
+        fr: "Ça devrait être fini d'ici ..."
+        it: "Dovrebbe essere finito entro ..."
+        pl: "Prawdopodobnie będzie gotowe do ..."
+        ru: "Скорее всего, будет готово к ..."
+        ja: "たぶん...までには終わります"
+        ko: "아마 ...까지는 끝날 거예요"
+        zh: "应该会在……前完成"
 
 - id: interview
-  title: İş görüşmesi
+  title:
+    en: Job interview
+    tr: İş görüşmesi
+    es: Entrevista de trabajo
+    pt-BR: Entrevista de emprego
+    de: Vorstellungsgespräch
+    fr: Entretien d'embauche
+    it: Colloquio di lavoro
+    pl: Rozmowa o pracę
+    ru: Собеседование
+    ja: 就職面接
+    ko: 취업 면접
+    zh: 求职面试
   role: a friendly hiring manager at a European software company interviewing {name} for a remote React Native role
   setting: Job interview. Questions about experience, projects, strengths, and why this job.
   opening: "Hi {name}, nice to meet you. To start, could you tell me a little about yourself and your background?"
   chunks:
     - phrase: "One project I'm proud of is ..."
-      meaning: "Gurur duyduğum projelerden biri ..."
+      meaning:
+        en: "A project I feel good about is ..."
+        tr: "Gurur duyduğum projelerden biri ..."
+        es: "Un proyecto del que estoy orgulloso es ..."
+        pt-BR: "Um projeto de que me orgulho é ..."
+        de: "Ein Projekt, auf das ich stolz bin, ist ..."
+        fr: "Un projet dont je suis fier, c'est ..."
+        it: "Un progetto di cui vado fiero è ..."
+        pl: "Projekt, z którego jestem dumny, to ..."
+        ru: "Проект, которым я горжусь: ..."
+        ja: "自信を持っているプロジェクトは...です"
+        ko: "제가 자신 있게 말할 수 있는 프로젝트는 ...이에요"
+        zh: "我比较满意的一个项目是……"
     - phrase: "I'm comfortable with ..."
-      meaning: "... konusunda rahatım"
+      meaning:
+        en: "I know ... well and feel confident with it"
+        tr: "... konusunda rahatım"
+        es: "Conozco bien ... y me siento seguro con ello"
+        pt-BR: "Conheço bem ... e me sinto seguro com isso"
+        de: "Ich kenne ... gut und fühle mich sicher damit"
+        fr: "Je connais bien ... et je suis à l'aise avec"
+        it: "Conosco bene ... e mi sento sicuro"
+        pl: "Dobrze znam ... i czuję się w tym pewnie"
+        ru: "Я хорошо знаю ... и уверенно с этим работаю"
+        ja: "...はよく分かっていて、自信があります"
+        ko: "...은(는) 잘 알고 있고 자신 있어요"
+        zh: "我很熟悉……，对它很有信心"
     - phrase: "That's a good point."
-      meaning: "Bu iyi bir nokta."
+      meaning:
+        en: "I agree, you're right about that."
+        tr: "Bu iyi bir nokta."
+        es: "Estoy de acuerdo, tienes razón."
+        pt-BR: "Concordo, você tem razão."
+        de: "Da stimme ich zu, du hast recht."
+        fr: "Je suis d'accord, tu as raison."
+        it: "Sono d'accordo, hai ragione."
+        pl: "Zgadzam się, masz rację."
+        ru: "Согласен, ты прав."
+        ja: "そのとおりですね。"
+        ko: "맞아요, 그 말이 맞아요."
+        zh: "我同意，你说得对。"
 
 - id: project-explain
-  title: Projeni anlat
+  title:
+    en: Talk about your project
+    tr: Projeni anlat
+    es: Habla de tu proyecto
+    pt-BR: Fale do seu projeto
+    de: Erzähl von deinem Projekt
+    fr: Parle de ton projet
+    it: Parla del tuo progetto
+    pl: Opowiedz o swoim projekcie
+    ru: Расскажи о своём проекте
+    ja: 自分のプロジェクトについて話す
+    ko: 내 프로젝트 이야기하기
+    zh: 聊聊你的项目
   role: a curious developer friend at a meetup who wants to hear about a project {name} built
   setting: "{name} explains one of their real projects: what it does, the tech, what was hard."
   opening: "So what are you building these days?"
   chunks:
     - phrase: "Basically, it lets you ..."
-      meaning: "Temelde ... yapmanı sağlıyor"
+      meaning:
+        en: "In simple words, it helps you ..."
+        tr: "Temelde ... yapmanı sağlıyor"
+        es: "En palabras sencillas, te ayuda a ..."
+        pt-BR: "Em resumo, ele ajuda você a ..."
+        de: "Einfach gesagt, es hilft dir, ..."
+        fr: "En gros, ça te permet de ..."
+        it: "In parole semplici, ti aiuta a ..."
+        pl: "Mówiąc prosto, pomaga ci ..."
+        ru: "Проще говоря, это помогает тебе ..."
+        ja: "簡単に言うと、...できるようにするものです"
+        ko: "쉽게 말하면, ...할 수 있게 해 줘요"
+        zh: "简单来说，它能帮你……"
     - phrase: "The tricky part was ..."
-      meaning: "Zor kısmı ... idi"
+      meaning:
+        en: "The difficult part was ..."
+        tr: "Zor kısmı ... idi"
+        es: "La parte difícil fue ..."
+        pt-BR: "A parte difícil foi ..."
+        de: "Der schwierige Teil war ..."
+        fr: "La partie difficile, c'était ..."
+        it: "La parte difficile è stata ..."
+        pl: "Trudna była ..."
+        ru: "Самым сложным было ..."
+        ja: "難しかったのは...でした"
+        ko: "어려웠던 부분은 ...였어요"
+        zh: "难的部分是……"
     - phrase: "If I did it again, I would ..."
-      meaning: "Tekrar yapsam ... yapardım"
+      meaning:
+        en: "If I did it one more time, I would ..."
+        tr: "Tekrar yapsam ... yapardım"
+        es: "Si lo hiciera otra vez, ..."
+        pt-BR: "Se eu fizesse de novo, ..."
+        de: "Wenn ich es noch mal machen würde, würde ich ..."
+        fr: "Si je le refaisais, je ..."
+        it: "Se lo rifacessi, ..."
+        pl: "Gdybym to robił jeszcze raz, ..."
+        ru: "Если бы я делал это ещё раз, я бы ..."
+        ja: "もう一度やるなら、...します"
+        ko: "다시 한다면, ...할 거예요"
+        zh: "如果再做一次，我会……"
 
 - id: travel
-  title: Seyahat (havalimanı, otel, restoran)
+  title:
+    en: Travel (airport, hotel, restaurant)
+    tr: Seyahat (havalimanı, otel, restoran)
+    es: Viajes (aeropuerto, hotel, restaurante)
+    pt-BR: Viagem (aeroporto, hotel, restaurante)
+    de: Reisen (Flughafen, Hotel, Restaurant)
+    fr: Voyage (aéroport, hôtel, restaurant)
+    it: Viaggi (aeroporto, hotel, ristorante)
+    pl: Podróże (lotnisko, hotel, restauracja)
+    ru: Путешествия (аэропорт, отель, ресторан)
+    ja: 旅行（空港、ホテル、レストラン）
+    ko: 여행 (공항, 호텔, 식당)
+    zh: 旅行（机场、酒店、餐厅）
   role: a hotel receptionist, then a waiter, depending on where the conversation goes
   setting: Checking in at a hotel abroad, asking for things, ordering food.
   opening: "Good evening, welcome! Do you have a reservation with us?"
   chunks:
     - phrase: "I was wondering if you could ..."
-      meaning: "Acaba ... yapabilir misiniz diye merak ediyordum"
+      meaning:
+        en: "A polite way to ask: can you ...?"
+        tr: "Acaba ... yapabilir misiniz diye merak ediyordum"
+        es: "Una forma educada de preguntar: ¿puedes ...?"
+        pt-BR: "Um jeito educado de perguntar: você pode ...?"
+        de: "Höflich gefragt: Kannst du ...?"
+        fr: "Une façon polie de demander : tu peux ... ?"
+        it: "Un modo cortese per chiedere: puoi ...?"
+        pl: "Uprzejmy sposób pytania: czy możesz ...?"
+        ru: "Вежливый способ спросить: можешь ...?"
+        ja: "丁寧に頼む言い方：...していただけますか？"
+        ko: "정중하게 묻는 표현: ...해 줄 수 있어요?"
+        zh: "礼貌地询问：你能……吗？"
     - phrase: "Could I get ...?"
-      meaning: "... alabilir miyim?"
+      meaning:
+        en: "A polite way to ask for something: I would like ..."
+        tr: "... alabilir miyim?"
+        es: "Una forma educada de pedir algo: quisiera ..."
+        pt-BR: "Um jeito educado de pedir algo: eu gostaria de ..."
+        de: "Höflich gebeten: Ich hätte gern ..."
+        fr: "Une façon polie de demander quelque chose : je voudrais ..."
+        it: "Un modo cortese per chiedere qualcosa: vorrei ..."
+        pl: "Uprzejmy sposób prośby: poproszę ..."
+        ru: "Вежливая просьба: я бы хотел ..."
+        ja: "丁寧に頼む言い方：...をお願いしたいです"
+        ko: "정중하게 요청하는 표현: ...을(를) 주세요"
+        zh: "礼貌地要东西：我想要……"
     - phrase: "Is it possible to ...?"
-      meaning: "... mümkün mü?"
+      meaning:
+        en: "Can I ...? Is ... allowed?"
+        tr: "... mümkün mü?"
+        es: "¿Puedo ...? ¿Se permite ...?"
+        pt-BR: "Posso ...? É permitido ...?"
+        de: "Kann ich ...? Ist ... erlaubt?"
+        fr: "Je peux ... ? Est-ce que ... est autorisé ?"
+        it: "Posso ...? È permesso ...?"
+        pl: "Czy mogę ...? Czy wolno ...?"
+        ru: "Можно ...? Разрешено ли ...?"
+        ja: "...してもいいですか？ ...は可能ですか？"
+        ko: "...해도 될까요? ...이 가능한가요?"
+        zh: "我可以……吗？……可以吗？"
 
 - id: friend-chat
-  title: Arkadaş sohbeti (yurtdışından bir arkadaş)
+  title:
+    en: Chat with a friend from abroad
+    tr: Arkadaş sohbeti (yurtdışından bir arkadaş)
+    es: Charla con un amigo del extranjero
+    pt-BR: Papo com um amigo do exterior
+    de: Chat mit einem Freund aus dem Ausland
+    fr: Discussion avec un ami de l'étranger
+    it: Chat con un amico dall'estero
+    pl: Rozmowa z przyjacielem z zagranicy
+    ru: Переписка с другом из-за границы
+    ja: 海外の友達とのおしゃべり
+    ko: 해외 친구와 대화
+    zh: 和国外的朋友聊天
   role: a friend from another country who chats with {name} on Instagram. Share small things from your own week too, like a real friend
   setting: Relaxed chat about daily life, plans, work, travel and whatever comes up.
   persona: true
   opening: "Heyy {name}! What have you been up to lately?"
   chunks:
     - phrase: "Not much, just ..."
-      meaning: "Pek bir şey yok, sadece ..."
+      meaning:
+        en: "Nothing much, only ..."
+        tr: "Pek bir şey yok, sadece ..."
+        es: "Nada especial, solo ..."
+        pt-BR: "Nada demais, só ..."
+        de: "Nicht viel, nur ..."
+        fr: "Pas grand-chose, juste ..."
+        it: "Niente di che, solo ..."
+        pl: "Nic szczególnego, tylko ..."
+        ru: "Да ничего особенного, просто ..."
+        ja: "特に何もなくて、ただ..."
+        ko: "별로 없고, 그냥 ..."
+        zh: "没什么大事，就是……"
     - phrase: "I've been so busy with ..."
-      meaning: "... ile çok meşguldüm"
+      meaning:
+        en: "I had a lot of work with ..."
+        tr: "... ile çok meşguldüm"
+        es: "Tuve mucho trabajo con ..."
+        pt-BR: "Tive muito trabalho com ..."
+        de: "Ich hatte viel zu tun mit ..."
+        fr: "J'ai eu beaucoup de travail avec ..."
+        it: "Ho avuto molto da fare con ..."
+        pl: "Miałem dużo roboty z ..."
+        ru: "У меня было много дел с ..."
+        ja: "...でとても忙しかった"
+        ko: "...때문에 정말 바빴어요"
+        zh: "我因为……忙得不可开交"
     - phrase: "That sounds like fun!"
-      meaning: "Kulağa eğlenceli geliyor!"
+      meaning:
+        en: "I think that will be fun."
+        tr: "Kulağa eğlenceli geliyor!"
+        es: "Creo que va a ser divertido."
+        pt-BR: "Acho que vai ser divertido."
+        de: "Ich glaube, das wird lustig."
+        fr: "Je pense que ça va être sympa."
+        it: "Credo che sarà divertente."
+        pl: "Myślę, że to będzie fajne."
+        ru: "Думаю, это будет весело."
+        ja: "それは楽しそうですね。"
+        ko: "재밌겠어요!"
+        zh: "听起来很好玩！"

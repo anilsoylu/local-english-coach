@@ -1,6 +1,8 @@
 """Benchmark a conversation model against fixed learner turns.
 
 Usage: uv run bench/run.py MODEL [MODEL ...] [--runs 1]
+Each case can set `native` (the learner's native language code, default tr); the system prompt is built for it.
+`prev` is the coach's previous line, or a list of {role, content} turns for a longer history.
 Writes bench/results/<model>__<prompt_version>.jsonl and prints a summary table.
 """
 
@@ -20,6 +22,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+from coach import config  # noqa: E402
+from coach.memory import detect_lang  # noqa: E402
 from coach.prompts import PROMPT_VERSION, system_prompt  # noqa: E402
 
 # Cases come from different situations, so the bench scenario tells the model to follow the previous line.
@@ -34,10 +38,7 @@ EXPLICIT_CORRECTION = re.compile(
     r"we say .* not |it'?s better to say|should be \"",
     re.I,
 )
-# Note: no re.I on the letters, under re.I Python matches "İ"/"ı" against plain "i"/"I".
-TURKISH_CHARS = re.compile(r"[çğışöüÇĞİŞÖÜ]")
-PLACES = re.compile(r"[İI]zmir|[İI]stanbul", re.I)  # proper nouns, not Turkish replies
-TURKISH_WORDS = re.compile(r"\b(ve|bir|bu|çok|ama|değil|nasıl|evet|hayır)\b", re.I)
+DEFAULT_NATIVE = "tr"  # cases without a `native` field
 # Humanizer tells adapted for speech (spoken chunks like "The thing is" are allowed).
 AI_TELLS = re.compile(
     r"great question|absolutely[!,.]|i'?d be (happy|glad) to|that'?s (amazing|fantastic|wonderful)|"
@@ -47,6 +48,9 @@ AI_TELLS = re.compile(
     re.I | re.M,
 )
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+# A native-language message gets back the sentence for the learner to say, so it is in first person. "You went to
+# the beach" is the echo pattern leaking in; any you/your in the first sentence counts.
+SECOND_PERSON = re.compile(r"\byou(r|'re|'ve)?\b", re.I)
 
 
 def score(case: dict, reply: str) -> dict:
@@ -55,14 +59,20 @@ def score(case: dict, reply: str) -> dict:
     q = text.count("?")
     checks = {
         "short": len(sentences) <= 4 and len(text.split()) <= 60,
-        "one_question": q == 1 or (case["kind"] in ("turkish", "help", "unfinished") and q <= 1),
+        "one_question": q == 1 or (case["kind"] in ("native", "help", "unfinished") and q <= 1),
         "no_explicit_correction": not EXPLICIT_CORRECTION.search(text),
-        "no_turkish": not (TURKISH_CHARS.search(PLACES.sub("", text)) or TURKISH_WORDS.search(text)),
+        "no_native": detect_lang(text, case.get("native", DEFAULT_NATIVE)) == "en",
         "no_ai_tells": not AI_TELLS.search(text),
     }
     if case.get("recast"):
         low = text.lower()
         checks["recast"] = any(r.lower() in low for r in case["recast"])
+    if case.get("avoid"):
+        # Phrases the reply must not contain, e.g. an earlier hint repeated instead of translating the new message.
+        low = text.lower()
+        checks["no_reuse"] = not any(a.lower() in low for a in case["avoid"])
+    if case["kind"] == "native":
+        checks["first_person"] = bool(sentences) and not SECOND_PERSON.search(sentences[0])
     if case["kind"] in ("help", "unfinished"):
         # A hint, not a lecture: should invite the learner to try.
         checks["hint"] = bool(re.search(r"try|start with|you could say|how about|say|\.\.\.", text, re.I))
@@ -132,7 +142,10 @@ def _result(parts, ttft, t0, final, thinking_chars):
 
 
 def run_model(model: str, cases: list[dict], runs: int) -> list[dict]:
-    sysmsg = system_prompt(scenario=BENCH_SCENARIO)
+    # LEARNER_ABOUT describes a Turkish learner, so only the tr cases get it.
+    sysmsgs = {n: system_prompt(scenario=BENCH_SCENARIO, native=n,
+                                profile=config.LEARNER_ABOUT if n == DEFAULT_NATIVE else "")
+               for n in {c.get("native", DEFAULT_NATIVE) for c in cases} | {DEFAULT_NATIVE}}
     out_dir = ROOT / "bench" / "results"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{model.replace(':', '_').replace('/', '_')}__{PROMPT_VERSION}.jsonl"
@@ -142,7 +155,8 @@ def run_model(model: str, cases: list[dict], runs: int) -> list[dict]:
         t0 = time.perf_counter()
         client.post(f"{OLLAMA}/api/chat", json={"model": model, "messages": [], "keep_alive": -1}, timeout=600)
         load_s = round(time.perf_counter() - t0, 1)
-        chat(client, model, [{"role": "system", "content": sysmsg}, {"role": "user", "content": "Hi!"}])
+        chat(client, model, [{"role": "system", "content": sysmsgs[DEFAULT_NATIVE]},
+                             {"role": "user", "content": "Hi!"}])
         vram = vram_mib()
         ps = client.get(f"{OLLAMA}/api/ps").json().get("models", [])
         gpu_share = None
@@ -153,11 +167,10 @@ def run_model(model: str, cases: list[dict], runs: int) -> list[dict]:
         print(f"\n== {model}  load {load_s}s  VRAM {vram} MiB  on-GPU {gpu_share}%", flush=True)
         for run in range(runs):
             for case in cases:
-                messages = [
-                    {"role": "system", "content": sysmsg},
-                    {"role": "assistant", "content": case["prev"]},
-                    {"role": "user", "content": case["user"]},
-                ]
+                prev = case["prev"]
+                history = [{"role": "assistant", "content": prev}] if isinstance(prev, str) else prev
+                messages = [{"role": "system", "content": sysmsgs[case.get("native", DEFAULT_NATIVE)]},
+                            *history, {"role": "user", "content": case["user"]}]
                 res = chat(client, model, messages)
                 checks = score(case, res["reply"])
                 row = {"model": model, "prompt": PROMPT_VERSION, "run": run, "id": case["id"],

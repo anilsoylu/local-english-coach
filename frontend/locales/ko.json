@@ -1,0 +1,50 @@
+{
+  "coachApp": {
+    "thinking": "Sam이 생각하는 중이에요…",
+    "end": "끝내기",
+    "confirmEnd": "정말 끝낼까요?",
+    "newSession": "새 세션",
+    "back": "뒤로",
+    "language": "언어",
+    "chat": "채팅",
+    "message": "메시지",
+    "send": "보내기",
+    "wait": "잠깐",
+    "stuck": "막혔어요"
+  },
+  "session": {
+    "unreachable": "서버에 연결할 수 없어요.",
+    "startFailed": "세션을 시작하지 못했어요. 상황을 다시 눌러 주세요.",
+    "sendFailed": "연결 오류예요. 메시지는 입력창에 남아 있어요. 다시 보내 주세요."
+  },
+  "scenarioPicker": {
+    "title": "오늘은 무슨 이야기를 할까요?",
+    "intro": "상황을 고르고 영어로 쓰거나, 키보드의 마이크로 말해 보세요. 막히면 모국어로 써도 되고 “막혔어요”를 눌러도 돼요.",
+    "reload": "새로고침"
+  },
+  "languagePicker": {
+    "welcome": "English Coach에 오신 것을 환영해요",
+    "title": "모국어 선택",
+    "intro": "가장 잘 아는 언어를 골라 주세요. 메뉴와 세션 리포트가 그 언어로 나와요.",
+    "unreachable": "서버에 연결할 수 없어요.",
+    "saveFailed": "선택을 저장하지 못했어요. 다시 시도해 주세요.",
+    "reload": "새로고침"
+  },
+  "warmupCard": {
+    "title": "오늘 써 보기"
+  },
+  "reportCard": {
+    "title": "세션 리포트",
+    "analyzing": "분석 중이에요. 몇 분 걸릴 수 있어요…",
+    "timeout": "리포트를 아직 준비하고 있어요. 잠시 후 페이지를 새로고침하면, 준비되었을 때 여기에 나타나요.",
+    "messages": "메시지",
+    "avgWords": "메시지당 평균 단어",
+    "responseTime": "응답 시간 (초)",
+    "stuck": "막힘",
+    "chunksUsed": "사용한 표현",
+    "corrections": "교정",
+    "natural": "더 자연스러운 표현",
+    "newChunks": "새 표현",
+    "tooShort": "분석하기에는 세션이 너무 짧았어요."
+  }
+}

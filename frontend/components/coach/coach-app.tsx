@@ -122,7 +122,6 @@ interface FrameProps {
   children?: ReactNode;
 }
 
-/** The page shell: header with the app name, an optional subtitle and actions, then the content. */
 function Frame({ subtitle, actions, children }: FrameProps) {
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
@@ -213,12 +212,14 @@ function Coach({
 }) {
   const t = useMessages("coachApp", DEFAULTS);
   const c = useCoach();
-  const current = c.scenarios.find((s) => s.id === c.scenario);
+  const s = c.session;
+  const busy = s.phase === "chat" && s.busy;
+  const current = c.scenarios.find((sc) => sc.id === c.scenario);
 
   return (
     <Frame
       subtitle={
-        c.phase !== "idle" &&
+        s.phase !== "idle" &&
         current && (
           <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
             <ScenarioIcon id={current.id} className="size-3" />
@@ -228,7 +229,7 @@ function Coach({
       }
       actions={
         <>
-          {c.phase === "idle" && (
+          {s.phase === "idle" && (
             <Button
               variant="outline"
               size="sm"
@@ -245,13 +246,13 @@ function Coach({
               {languageName ?? t("language")}
             </Button>
           )}
-          {c.phase === "chat" && (
+          {s.phase === "chat" && (
             <EndButton
-              disabled={c.busy || !c.messages.some((m) => m.from === "user")}
+              disabled={busy || !c.messages.some((m) => m.from === "user")}
               onEnd={c.end}
             />
           )}
-          {c.phase === "report" && (
+          {s.phase === "report" && (
             <Button
               variant="outline"
               size="sm"
@@ -266,12 +267,12 @@ function Coach({
         </>
       }
     >
-      {c.phase === "idle" ? (
+      {s.phase === "idle" ? (
         <main className="flex-1 overflow-y-auto">
           <ScenarioPicker
             scenarios={c.scenarios}
             selected={c.scenario}
-            disabled={c.starting}
+            disabled={s.starting}
             error={c.error}
             onPick={(id) => {
               c.setScenario(id);
@@ -284,11 +285,11 @@ function Coach({
           className="min-h-0 flex-1"
           viewportClassName="py-6 [scrollbar-gutter:stable_both-edges]"
           contentClassName="mx-auto w-full max-w-2xl px-4"
-          busy={c.busy}
-          smooth={!c.busy}
+          busy={busy}
+          smooth={!busy}
           labels={{ label: t("chat") }}
         >
-          {c.phase === "chat" && <WarmupCard chunks={c.warmup} />}
+          {s.phase === "chat" && <WarmupCard chunks={s.warmup} />}
           <MessageGroup spacing="default" lang="en">
             {c.messages.map((m) => (
               <Message
@@ -330,18 +331,18 @@ function Coach({
               </Message>
             ))}
           </MessageGroup>
-          {c.report && <ReportCard state={c.report} />}
+          {s.phase === "report" && <ReportCard state={s.report} />}
         </MessageScroller>
       )}
 
-      {c.phase === "chat" && (
+      {s.phase === "chat" && (
         <footer className="border-t border-border/70 bg-background pb-[env(safe-area-inset-bottom)]">
           <div className="mx-auto w-full max-w-2xl px-4 py-3">
             <PromptInput
               value={c.draft}
               onValueChange={c.setDraft}
               onSubmit={(text) => c.send(text)}
-              loading={c.busy}
+              loading={busy}
               minRows={1}
               maxRows={6}
               placeholder="Type in English…"
@@ -363,7 +364,7 @@ function Coach({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  disabled={c.busy}
+                  disabled={busy}
                   onClick={() => c.send(HELP_TEXT, true)}
                   data-testid="help"
                   className={COARSE_BUTTON}

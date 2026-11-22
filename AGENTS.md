@@ -100,4 +100,5 @@ bench/              chat bench (cases.yaml, `native` per case) and analysis benc
 examples/           made-up personal-data formats (chat exports, friend persona); tests use them
 tests/              smoke and UI tests
 deploy/             Ollama override, backup script
+docs/               state-machines.md: the session lifecycle in the UI and on the server, with its transitions
 ```

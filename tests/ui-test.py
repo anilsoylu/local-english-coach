@@ -110,6 +110,9 @@ async def run(p, base, name, viewport, scheme, mobile):
     coach = await page.locator(COACH).all_inner_texts()
     new_visible = await page.is_visible('[data-testid="new"]')
     report_text = await page.inner_text('[data-testid="report"]')
+    await page.reload()  # the ended session's report comes back after a reload
+    await page.wait_for_selector('[data-testid="report"] h3, [data-testid="report"] .tabular-nums', timeout=30000)
+    report_after_reload = await page.is_visible('[data-testid="new"]') and not await page.is_visible(TEXTAREA)
     if not mobile:  # CJK and Cyrillic rendering of the scenario screen
         await page.click('[data-testid="new"]')  # otherwise a reload shows the ended session's report again
         for lang in ("ja", "ru"):
@@ -122,7 +125,7 @@ async def run(p, base, name, viewport, scheme, mobile):
     return {
         "name": name, "turkish_ui": turkish_ui, "html_lang": html_lang, "current_language_marked": current_marked,
         "textarea_attrs": attrs, "warmup_items": warm, "resumed_after_reload": resumed,
-        "horizontal_overflow_px": overflow, "new_session_button": new_visible,
+        "horizontal_overflow_px": overflow, "new_session_button": new_visible, "report_after_reload": report_after_reload,
         "coach_replies": coach, "report_excerpt": report_text[:600], "problems": problems,
     }
 
@@ -137,7 +140,9 @@ async def main():
                 results.append(await run(p, base, *args))
     print(json.dumps(results, ensure_ascii=False, indent=2))
     bad = [r["name"] for r in results if r["problems"] or r["horizontal_overflow_px"] > 0 or not r["resumed_after_reload"]
-           or not r["turkish_ui"] or r["html_lang"] != "tr" or not r["current_language_marked"]]
+           or not r["turkish_ui"] or r["html_lang"] != "tr" or not r["current_language_marked"]
+           or r["textarea_attrs"] != [False, "off", "off", "16px"] or not r["warmup_items"]
+           or not r["new_session_button"] or not r["report_after_reload"]]
     print("FAIL: " + ", ".join(bad) if bad else "PASS")
     sys.exit(1 if bad else 0)
 

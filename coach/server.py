@@ -91,11 +91,6 @@ async def warm(request: Request) -> dict:
     return {"ok": True}
 
 
-def get_profile(db) -> dict:
-    return memory.get_profile(db, USER_ID, {"name": config.LEARNER_NAME, "level": config.LEARNER_LEVEL,
-                                            "about": config.LEARNER_ABOUT})
-
-
 @app.get("/api/languages")
 def native_languages() -> list[dict]:
     return languages.listing()
@@ -104,7 +99,7 @@ def native_languages() -> list[dict]:
 @app.get("/api/profile")
 def profile() -> dict:
     """native_language is '' until the learner picks one; the UI shows onboarding then."""
-    return {"native_language": get_profile(memory.connect())["native_language"]}
+    return {"native_language": memory.get_profile(memory.connect(), USER_ID)["native_language"]}
 
 
 @app.put("/api/profile")
@@ -112,7 +107,7 @@ def set_profile(body: ProfileBody) -> dict:
     if body.native_language not in languages.LANGUAGES:
         raise HTTPException(400, "unknown language")
     db = memory.connect()
-    get_profile(db)  # creates the row on first use
+    memory.get_profile(db, USER_ID)  # creates the row on first use
     with db:
         db.execute("UPDATE profile SET native_language=? WHERE user_id=?", (body.native_language, USER_ID))
     return {"native_language": body.native_language}
@@ -120,7 +115,7 @@ def set_profile(body: ProfileBody) -> dict:
 
 @app.get("/api/scenarios")
 def scenarios() -> list[dict]:
-    native = get_profile(memory.connect())["native_language"]
+    native = memory.get_profile(memory.connect(), USER_ID)["native_language"]
     return [{"id": s["id"], "title": languages.pick(s["title"], native)} for s in SCENARIOS.values()]
 
 
@@ -131,7 +126,7 @@ def start(body: StartBody) -> dict:
         raise HTTPException(404, "unknown scenario")
     db = memory.connect()
     with db:
-        prof = get_profile(db)
+        prof = memory.get_profile(db, USER_ID)
         native = prof["native_language"]
         for c in sc.get("chunks", []):
             memory.upsert_chunk(db, USER_ID, c["phrase"], languages.pick(c.get("meaning", ""), native), due_in_days=0)
@@ -146,11 +141,12 @@ def start(body: StartBody) -> dict:
             (USER_ID, sc["id"], CHAT_MODEL, PROMPT_VERSION, sysmsg, json.dumps([c["id"] for c in due]), memory.now()),
         )
         sid = cur.lastrowid
+        first = opening(sc, prof["name"])
         db.execute("INSERT INTO turns(session_id, role, content, created_at) VALUES (?,?,?,?)",
-                   (sid, "assistant", opening(sc, prof["name"]), memory.now()))
+                   (sid, "assistant", first, memory.now()))
     return {
         "session_id": sid,
-        "opening": opening(sc, prof["name"]),
+        "opening": first,
         "warmup": [{"phrase": c["phrase"],
                     "meaning": languages.pick(SEED_MEANINGS.get(c["phrase"], c["meaning"]), native)} for c in due],
     }
@@ -183,7 +179,7 @@ async def message(sid: int, body: MessageBody, request: Request) -> StreamingRes
     s = db.execute("SELECT ended_at FROM sessions WHERE id=?", (sid,)).fetchone()
     if not s or s["ended_at"]:
         raise HTTPException(409, "session not active")
-    lang = memory.detect_lang(text, get_profile(db)["native_language"])
+    lang = memory.detect_lang(text, memory.get_profile(db, USER_ID)["native_language"])
     with db:
         turn_id = db.execute(
             "INSERT INTO turns(session_id, role, content, lang, is_help, response_ms, created_at) VALUES (?,?,?,?,?,?,?)",

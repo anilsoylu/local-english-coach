@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from coach import config, languages, memory
-from coach.analyze import analysis_slot, call_model, clean_report
+from coach.analyze import CHUNK_ITEM, ERROR_ITEM, analysis_slot, call_model, clean_report
 
 CHATS_DIR = config.PERSONAL_DIR / "chats"
 BATCH = 60  # learner lines per analysis call; fits the 16k context with room for the answer
@@ -59,19 +59,8 @@ Messages = list[tuple[str, str]]  # (sender, text) in time order
 LEARNER_SCHEMA = {
     "type": "object",
     "properties": {
-        "errors": {
-            "type": "array", "maxItems": 6,
-            "items": {"type": "object", "properties": {
-                "kind": {"type": "string"}, "original": {"type": "string"},
-                "better": {"type": "string"}, "note": {"type": "string"},
-            }, "required": ["kind", "original", "better", "note"]},
-        },
-        "chunks": {
-            "type": "array", "maxItems": 5,
-            "items": {"type": "object", "properties": {
-                "phrase": {"type": "string"}, "meaning": {"type": "string"}, "example": {"type": "string"},
-            }, "required": ["phrase", "meaning", "example"]},
-        },
+        "errors": {"type": "array", "maxItems": 6, "items": ERROR_ITEM},
+        "chunks": {"type": "array", "maxItems": 5, "items": CHUNK_ITEM},
         "recurring_errors": {"type": "array", "maxItems": 5, "items": {"type": "string"}},
     },
     "required": ["errors", "chunks", "recurring_errors"],
@@ -239,8 +228,7 @@ def other_lines(messages: list[tuple[str, str]], me: str) -> list[str]:
 def import_chat(chat: Chat, me: str) -> dict:
     """Run both analyses and store the results. Returns counts only."""
     db = memory.connect()
-    prof = memory.get_profile(db, config.USER_ID, {"name": config.LEARNER_NAME, "level": config.LEARNER_LEVEL,
-                                                   "about": config.LEARNER_ABOUT})
+    prof = memory.get_profile(db, config.USER_ID)
     native = prof["native_language"]
     _, messages = chat.read()
     mine, theirs = learner_lines(messages, me, native), other_lines(messages, me)

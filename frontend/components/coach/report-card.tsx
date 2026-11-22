@@ -1,16 +1,19 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
+import { useEffect, useState } from "react";
 import { ThinkingShimmer } from "@/components/agents/loading-states/thinking-shimmer";
 import { ErrorNote } from "@/components/coach/pick-list";
 import { Button } from "@/components/ui/button";
+import type { Metrics } from "@/lib/api";
 import { useMessages } from "@/lib/i18n";
 import { COARSE_BUTTON } from "@/lib/touch";
 import type { ReportState } from "@/lib/use-coach";
 
 const DEFAULTS = {
   title: "Session report",
-  analyzing: "Analyzing, this can take a few minutes…",
+  waiting: "Analyzing, about 30 seconds…",
+  elapsed: "{seconds} s",
   timeout:
     "The report is still being prepared. Reload the page in a little while, it shows up here when ready.",
   messages: "messages",
@@ -80,7 +83,10 @@ export function ReportCard({ state, onGenerate, error }: ReportCardProps) {
     >
       <h2 className="text-base font-semibold">{t("title")}</h2>
       {state.status === "waiting" && (
-        <ThinkingShimmer className="text-sm">{t("analyzing")}</ThinkingShimmer>
+        <>
+          {state.metrics && <Stats metrics={state.metrics} />}
+          <Waiting />
+        </>
       )}
       {state.status === "timeout" && (
         <p className="text-sm text-muted-foreground">{t("timeout")}</p>
@@ -106,26 +112,55 @@ export function ReportCard({ state, onGenerate, error }: ReportCardProps) {
   );
 }
 
-function ReportBody({
-  metrics: m,
-  report: r,
-}: Pick<Extract<ReportState, { status: "ready" }>, "metrics" | "report">) {
+/** The model's part of the report is on its way: the expected wait and the seconds so far. */
+function Waiting() {
+  const t = useMessages("reportCard", DEFAULTS);
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setSeconds((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="flex items-baseline gap-3 text-sm" data-testid="waiting">
+      <ThinkingShimmer>{t("waiting")}</ThinkingShimmer>
+      <span
+        className="tabular-nums text-muted-foreground"
+        data-testid="elapsed"
+      >
+        {t("elapsed", { seconds })}
+      </span>
+    </div>
+  );
+}
+
+/** Computed in code, so they show while the model still works on the rest. */
+function Stats({ metrics: m }: { metrics: Metrics }) {
   const t = useMessages("reportCard", DEFAULTS);
   const stuck =
     (m.help_count ?? 0) + (m.native_turns ?? 0) + (m.mixed_turns ?? 0);
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" data-testid="stats">
+      <Stat value={m.user_turns} label={t("messages")} />
+      <Stat value={m.avg_words} label={t("avgWords")} />
+      <Stat value={m.median_response_s} label={t("responseTime")} />
+      <Stat value={stuck} label={t("stuck")} />
+      <Stat
+        value={`${m.chunks_used?.length ?? 0}/${m.chunks_offered ?? 0}`}
+        label={t("chunksUsed")}
+      />
+    </div>
+  );
+}
+
+function ReportBody({
+  metrics,
+  report: r,
+}: Pick<Extract<ReportState, { status: "ready" }>, "metrics" | "report">) {
+  const t = useMessages("reportCard", DEFAULTS);
   const empty = !r.feedback && !r.errors?.length;
   return (
     <>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <Stat value={m.user_turns} label={t("messages")} />
-        <Stat value={m.avg_words} label={t("avgWords")} />
-        <Stat value={m.median_response_s} label={t("responseTime")} />
-        <Stat value={stuck} label={t("stuck")} />
-        <Stat
-          value={`${m.chunks_used?.length ?? 0}/${m.chunks_offered ?? 0}`}
-          label={t("chunksUsed")}
-        />
-      </div>
+      <Stats metrics={metrics} />
       {r.feedback && (
         <p className="text-pretty leading-relaxed">{r.feedback}</p>
       )}

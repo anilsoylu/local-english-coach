@@ -170,6 +170,32 @@ describe("report screen and past sessions", () => {
   });
 });
 
+describe("metrics before the report", () => {
+  const metrics = { user_turns: 4, chunks_offered: 2, chunks_used: ["x"] };
+
+  test("the waiting report carries the metrics, then the full report replaces it", () => {
+    let s = run([
+      { type: "restored", sid: 3, ended: true },
+      { type: "metrics", sid: 3, metrics },
+    ]);
+    expect(s).toEqual({
+      phase: "report",
+      sid: 3,
+      report: { status: "waiting", metrics },
+    });
+    s = run([{ type: "settled", sid: 3, report: ready }], s);
+    expect(s).toEqual({ phase: "report", sid: 3, report: ready });
+  });
+
+  test("metrics apply only to the same session while it waits", () => {
+    const waiting = run([{ type: "restored", sid: 3, ended: true }]);
+    expect(run([{ type: "metrics", sid: 4, metrics }], waiting)).toBe(waiting);
+    const done = run([{ type: "settled", sid: 3, report: ready }], waiting);
+    expect(run([{ type: "metrics", sid: 3, metrics }], done)).toBe(done);
+    expect(run([{ type: "metrics", sid: 3, metrics }])).toBe(IDLE);
+  });
+});
+
 describe("known gaps, fixed", () => {
   test("a tap during the first load wins over the stored session", () => {
     // Tapped while restoring: the session that arrives later is ignored, before and after the new one exists.

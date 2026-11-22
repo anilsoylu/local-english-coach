@@ -194,12 +194,21 @@ def analysis_slot():
 
 
 def queue_analysis(ids: list[int]) -> None:
-    """Analyzes the sessions one after another in a background thread, skipping any that already have a job queued
-    or running. Jobs from different calls wait for each other on the analysis slot."""
+    """Stores each session's metrics, then analyzes the sessions one after another in a background thread, skipping
+    any that already have a job queued or running. Jobs from different calls wait for each other on the analysis
+    slot."""
     with _queued_lock:
         ids = [i for i in ids if i not in _queued]
         _queued.update(ids)
     if ids:
+        # The metrics need no model, so the report screen shows them at once (GET /report returns them while pending).
+        db = memory.connect()
+        with db:
+            for sid in ids:
+                s, turns = _load(db, sid)
+                db.execute("UPDATE sessions SET metrics=? WHERE id=? AND analyzed_at IS NULL",
+                           (json.dumps(session_metrics(db, s, turns)[0]), sid))
+        db.close()
         threading.Thread(target=lambda: [analyze_session(i) for i in ids], daemon=True).start()
 
 
@@ -221,18 +230,17 @@ def analyze_session(sid: int) -> None:
             _queued.discard(sid)
 
 
-def _analyze(sid: int) -> None:
-    db = memory.connect()
+def _load(db, sid: int) -> tuple[dict, list[dict]]:
+    """The session row and its turns."""
     s = dict(db.execute("SELECT * FROM sessions WHERE id=?", (sid,)).fetchone())
-    if s["analyzed_at"]:
-        return
-    turns = [dict(t) for t in db.execute("SELECT * FROM turns WHERE session_id=? ORDER BY id", (sid,))]
+    return s, [dict(t) for t in db.execute("SELECT * FROM turns WHERE session_id=? ORDER BY id", (sid,))]
+
+
+def session_metrics(db, s: dict, turns: list[dict]) -> tuple[dict, list[tuple[int, str, bool]]]:
+    """The metrics computed in code, and the Leitner review (id, phrase, used) of each phrase offered in the session."""
     user_texts = [t["content"] for t in turns if t["role"] == "user"]
     metrics = text_metrics(turns)
-
     offered = json.loads(s["offered_chunks"])
-    # Leitner reviews are written in the same transaction as analyzed_at, so a failed model call followed by a retry
-    # doesn't move the phrases twice.
     reviews = []
     for cid in offered:
         row = db.execute("SELECT phrase FROM chunks WHERE id=?", (cid,)).fetchone()
@@ -240,6 +248,17 @@ def _analyze(sid: int) -> None:
             reviews.append((cid, row["phrase"], memory.phrase_used(row["phrase"], user_texts)))
     metrics["chunks_offered"] = len(offered)
     metrics["chunks_used"] = [phrase for _, phrase, ok in reviews if ok]
+    return metrics, reviews
+
+
+def _analyze(sid: int) -> None:
+    db = memory.connect()
+    s, turns = _load(db, sid)
+    if s["analyzed_at"]:
+        return
+    # Leitner reviews are written in the same transaction as analyzed_at, so a failed model call followed by a retry
+    # doesn't move the phrases twice.
+    metrics, reviews = session_metrics(db, s, turns)
 
     def review_chunks() -> None:
         for cid, _, ok in reviews:

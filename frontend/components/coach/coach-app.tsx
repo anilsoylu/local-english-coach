@@ -11,7 +11,9 @@ import {
   Square,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import Image from "next/image";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import appIcon from "@/app/icon.svg";
 import { AgentDisclosure } from "@/components/agents/agent-disclosure";
 import { ThinkingShimmer } from "@/components/agents/loading-states/thinking-shimmer";
 import {
@@ -148,9 +150,8 @@ function Frame({ subtitle, actions, onHome, children }: FrameProps) {
     <div className="flex h-dvh flex-col bg-background text-foreground">
       <header className="border-b border-border/70 bg-background pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 w-full max-w-2xl items-center gap-3 px-4">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
-            EC
-          </span>
+          {/* Same file as the favicon, so the header and the browser tab always match. */}
+          <Image src={appIcon} alt="" unoptimized className="size-8 shrink-0" />
           <div className="flex min-w-0 flex-1 flex-col items-start">
             {onHome ? (
               <button

@@ -20,7 +20,8 @@ export const metadata: Metadata = {
   title: "English Coach",
   description: "Speaking-style English practice with a local coach",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon-180.png", apple: "/icon-180.png" },
+  // No `icons` here: app/favicon.ico, app/icon.svg and app/apple-icon.png (180 px) are file conventions, and an
+  // `icons` entry would hide the SVG. https://nextjs.org/docs/app/api-reference/file-conventions/metadata/app-icons
   appleWebApp: {
     capable: true,
     title: "English Coach",
@@ -32,6 +33,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  // Matches the manifest's theme_color (light) and globals.css --background (dark).
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },

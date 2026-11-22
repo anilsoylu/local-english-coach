@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>English Coach</title>
+  <rect width="64" height="64" rx="14" fill="#2f6f5e"/>
+  <path fill="#fff" fill-opacity=".5" d="M18 11h14a8 8 0 0 1 8 8v7a8 8 0 0 1-8 8h-8l-10 8 2.5-8.2A8 8 0 0 1 10 26v-7a8 8 0 0 1 8-8z"/>
+  <path fill="#fff" stroke="#2f6f5e" stroke-width="4" paint-order="stroke" d="M32 23h14a8 8 0 0 1 8 8v7a8 8 0 0 1-6.5 7.9L50 54l-10-8h-8a8 8 0 0 1-8-8v-7a8 8 0 0 1 8-8z"/>
+</svg>

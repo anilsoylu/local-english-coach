@@ -94,7 +94,8 @@ coach/config.py     config.yaml + env vars (COACH_MODEL, COACH_ANALYSIS_MODEL, C
 coach/chats.py      chat export import (Instagram/Messenger, WhatsApp, Telegram, plain text) from data/personal/chats/; local models only, prints ids and counts only
 frontend/           Next.js static export (bun); `bun run build` writes frontend/out, which FastAPI serves. See frontend/README.md
 frontend/locales/   UI strings per native language (<code>.json); English is the components' defaults, missing keys fall back to it
-frontend/public/    manifest and icons for "Add to Dock" / home screen
+frontend/public/    manifest and its 512 px icons (any, maskable) for "Add to Dock" / home screen
+frontend/app/       also the tab and apple-touch icons (Next.js file conventions); icon.svg is the source of every icon PNG
 scenarios.yaml      roles, openings and seed phrases; {name} is the learner's name; titles and meanings map by language code
 bench/              chat bench (cases.yaml, `native` per case) and analysis bench (transcripts.yaml, `--native`)
 examples/           made-up personal-data formats (chat exports, friend persona); tests use them

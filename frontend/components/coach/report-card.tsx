@@ -124,7 +124,7 @@ function Waiting() {
     <div className="flex items-baseline gap-3 text-sm" data-testid="waiting">
       <ThinkingShimmer>{t("waiting")}</ThinkingShimmer>
       <span
-        className="tabular-nums text-muted-foreground"
+        className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground"
         data-testid="elapsed"
       >
         {t("elapsed", { seconds })}

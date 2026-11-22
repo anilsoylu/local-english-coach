@@ -141,11 +141,12 @@ def start(body: StartBody) -> dict:
             (USER_ID, sc["id"], CHAT_MODEL, PROMPT_VERSION, sysmsg, json.dumps([c["id"] for c in due]), memory.now()),
         )
         sid = cur.lastrowid
+        first = opening(sc, prof["name"])
         db.execute("INSERT INTO turns(session_id, role, content, created_at) VALUES (?,?,?,?)",
-                   (sid, "assistant", opening(sc, prof["name"]), memory.now()))
+                   (sid, "assistant", first, memory.now()))
     return {
         "session_id": sid,
-        "opening": opening(sc, prof["name"]),
+        "opening": first,
         "warmup": [{"phrase": c["phrase"],
                     "meaning": languages.pick(SEED_MEANINGS.get(c["phrase"], c["meaning"]), native)} for c in due],
     }

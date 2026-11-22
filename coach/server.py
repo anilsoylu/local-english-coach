@@ -155,7 +155,7 @@ def start(body: StartBody) -> dict:
 def build_messages(db, sid: int) -> list[dict]:
     s = db.execute("SELECT system_prompt FROM sessions WHERE id=?", (sid,)).fetchone()
     turns = db.execute("SELECT role, content FROM turns WHERE session_id=? ORDER BY id", (sid,)).fetchall()
-    turns = turns[:1] + turns[1:][-MAX_TURNS_IN_CONTEXT:]
+    turns = turns[:1] + turns[1:][-MAX_TURNS_IN_CONTEXT:]  # keep the opening line, then a sliding window
     return [{"role": "system", "content": s["system_prompt"]}] + [dict(t) for t in turns]
 
 

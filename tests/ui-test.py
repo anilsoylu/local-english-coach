@@ -23,11 +23,21 @@ MESSAGES = [
 ]
 
 
+COACH = '[data-slot="message"][data-from="assistant"]'
+TEXTAREA = "footer textarea"
+
+
 async def wait_reply(page, n_coach):
+    """n coach messages on screen and none still streaming."""
     await page.wait_for_function(
-        f"document.querySelectorAll('.msg.coach').length >= {n_coach} && !document.querySelector('.typing')",
+        f"document.querySelectorAll('{COACH}').length >= {n_coach} && !document.querySelector('[aria-busy=true]')",
         timeout=60000,
     )
+
+
+async def send(page, text):
+    await page.fill(TEXTAREA, text)
+    await page.press(TEXTAREA, "Enter")
 
 
 async def run(p, name, viewport, scheme, mobile):
@@ -41,52 +51,51 @@ async def run(p, name, viewport, scheme, mobile):
     page.on("response", lambda r: problems.append(f"HTTP {r.status} {r.url}") if r.status >= 400 else None)
 
     await page.goto(BASE + "/")
-    await page.wait_for_selector("#scenario option", state="attached")
+    await page.wait_for_selector("[data-scenario]")
+    await page.wait_for_timeout(500)  # let the cards finish their entrance
     await page.screenshot(path=f"{OUT}/{name}-1-start.png")
 
-    attrs = await page.eval_on_selector("#input", "e => [e.spellcheck, e.getAttribute('autocorrect'), e.getAttribute('autocomplete')]")
-    await page.select_option("#scenario", "upwork-delay")
-    await page.click("#start")
+    await page.click('[data-scenario="upwork-delay"]')
+    await page.wait_for_selector(TEXTAREA)
     await wait_reply(page, 1)
-    await page.check("#timerToggle")
-    warm = await page.locator(".warm li").count()
+    attrs = await page.eval_on_selector(TEXTAREA, "e => [e.spellcheck, e.getAttribute('autocorrect'), e.getAttribute('autocomplete'), getComputedStyle(e).fontSize]")
+    warm = await page.locator('section[aria-label="Bugün kullanmayı dene"] li').count()
     await page.screenshot(path=f"{OUT}/{name}-2-session.png")
 
     n = 1
     for m in MESSAGES:
-        await page.fill("#input", m)
-        await page.wait_for_timeout(1200)  # let the timer tick
-        await page.press("#input", "Enter")
+        await send(page, m)
         n += 1
         await wait_reply(page, n)
-    await page.click("#help")
+    await page.click('[data-testid="help"]')
     n += 1
     await wait_reply(page, n)
-    await page.fill("#input", "Müşteriye nasıl söylerim bilmiyorum.")
-    await page.click("#send")
+    await send(page, "Müşteriye nasıl söylerim bilmiyorum.")
     n += 1
     await wait_reply(page, n)
-    timer_visible = await page.is_visible("#timer")
-    await page.screenshot(path=f"{OUT}/{name}-3-chat.png", full_page=True)
+    await page.wait_for_timeout(500)  # the send button swaps its icon with a short animation
+    await page.screenshot(path=f"{OUT}/{name}-3-chat.png")
 
-    before = await page.locator(".msg").count()
+    before = await page.locator('[data-slot="message"]').count()
     await page.reload()  # a reload or a laptop waking up must bring the session back
-    await page.wait_for_selector("#composer:not(.hidden)")
-    resumed = await page.locator(".msg").count() == before
+    await page.wait_for_selector(TEXTAREA)
+    await page.wait_for_timeout(500)
+    resumed = await page.locator('[data-slot="message"]').count() == before
 
-    await page.click("#end")
-    await page.wait_for_selector(".report", timeout=240000)
+    await page.click('[data-testid="end"]')
+    await page.click('[data-testid="end"]')  # the first tap only arms the button; the second confirms
+    await page.wait_for_selector('[data-testid="report"] h3, [data-testid="report"] .tabular-nums', timeout=240000)
     await page.wait_for_timeout(800)
-    await page.screenshot(path=f"{OUT}/{name}-4-report.png", full_page=True)
+    await page.screenshot(path=f"{OUT}/{name}-4-report.png")
 
     overflow = await page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
-    coach = await page.locator(".msg.coach").all_inner_texts()
-    start_visible = await page.is_visible("#start")
-    report_text = await page.inner_text(".report")
+    coach = await page.locator(COACH).all_inner_texts()
+    new_visible = await page.is_visible('[data-testid="new"]')
+    report_text = await page.inner_text('[data-testid="report"]')
     await browser.close()
     return {
-        "name": name, "autocorrect_attrs": attrs, "warmup_items": warm, "timer_visible_after_reply": timer_visible, "resumed_after_reload": resumed,
-        "horizontal_overflow_px": overflow, "start_button_back": start_visible,
+        "name": name, "textarea_attrs": attrs, "warmup_items": warm, "resumed_after_reload": resumed,
+        "horizontal_overflow_px": overflow, "new_session_button": new_visible,
         "coach_replies": coach, "report_excerpt": report_text[:600], "problems": problems,
     }
 

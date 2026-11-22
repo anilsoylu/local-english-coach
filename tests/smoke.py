@@ -73,7 +73,7 @@ def main() -> int:
             failures.append("index.html can be served stale from the browser cache")
         if c.post("/api/warm").json() != {"ok": True}:
             failures.append("warm endpoint failed")
-        mf = c.get("/static/manifest.webmanifest")
+        mf = c.get("/manifest.webmanifest")
         if mf.status_code != 200 or "manifest+json" not in mf.headers["content-type"]:
             failures.append(f"manifest not served: {mf.status_code} {mf.headers.get('content-type')}")
         rep = {"ready": False}

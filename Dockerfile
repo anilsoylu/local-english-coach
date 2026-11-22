@@ -1,3 +1,12 @@
+# UI: Next.js static export built with Bun; only the out/ folder reaches the app image.
+# https://bun.com/docs/guides/ecosystem/docker , https://nextjs.org/docs/app/guides/static-exports
+FROM oven/bun:1.4.4 AS web
+WORKDIR /web
+COPY frontend/package.json frontend/bun.lock ./
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
+COPY frontend/ ./
+RUN bun run build
+
 # Pattern from https://docs.astral.sh/uv/guides/integration/docker/
 FROM python:3.12-slim-trixie AS app
 COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /uvx /bin/
@@ -12,7 +21,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-install-project
 
 COPY coach ./coach
-COPY web ./web
+COPY --from=web /web/out ./frontend/out
 COPY scenarios.yaml ./
 ENV PATH="/app/.venv/bin:$PATH"
 

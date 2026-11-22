@@ -12,7 +12,7 @@ from pathlib import Path
 import httpx
 import yaml
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -63,7 +63,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-app.mount("/static", StaticFiles(directory=ROOT / "web" / "static"), name="static")
 
 
 class StartBody(BaseModel):
@@ -73,13 +72,6 @@ class StartBody(BaseModel):
 class MessageBody(BaseModel):
     text: str = Field(max_length=2000)
     response_ms: int | None = None
-
-
-@app.get("/")
-def index() -> FileResponse:
-    # Revalidate every time (a cheap 304 via ETag): without it browsers and Safari's Dock apps keep showing the
-    # page from before a deploy. https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control#no-cache
-    return FileResponse(ROOT / "web" / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 @app.post("/api/warm")
@@ -240,3 +232,22 @@ def progress() -> list[dict]:
     ).fetchall()
     return [{"id": r["id"], "scenario": r["scenario"], "date": r["started_at"][:10], **json.loads(r["metrics"] or "{}")}
             for r in rows]
+
+
+class WebFiles(StaticFiles):
+    """The Next.js static export. Hashed files under _next/static never change, so browsers keep them for a
+    year; HTML and everything else revalidates on each load (a cheap 304 via ETag) so a deploy shows up at once.
+    https://nextjs.org/docs/app/guides/static-exports"""
+
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        res = super().file_response(full_path, stat_result, scope, status_code)
+        immutable = scope["path"].startswith("/_next/static/")
+        res.headers["Cache-Control"] = "public, max-age=31536000, immutable" if immutable else "no-cache"
+        return res
+
+
+# Mounted last so every /api route above wins. Without a build (python -m coach during API work) the API still runs.
+if config.WEB_DIR.is_dir():
+    app.mount("/", WebFiles(directory=config.WEB_DIR, html=True), name="web")
+else:
+    log.warning("no web build in %s: run `bun run build` in frontend/", config.WEB_DIR)

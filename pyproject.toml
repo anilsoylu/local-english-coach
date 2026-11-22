@@ -1,5 +1,5 @@
 [project]
-name = "english-coach"
+name = "local-english-coach"
 version = "0.1.0"
 description = "Local English conversation coach for language learners (Ollama + FastAPI)"
 license = "MIT"

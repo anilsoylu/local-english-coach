@@ -34,7 +34,7 @@ If you use a coding agent (Claude Code, Codex, opencode or similar), open it in 
 ```text
 Install English Coach on this machine for me.
 
-1. Clone https://github.com/anilsoylu/english-coach.git and cd into it.
+1. Clone https://github.com/anilsoylu/local-english-coach.git and cd into it.
 2. Read AGENTS.md and follow its Install section in order. That section is the
    source of truth; don't skip or reorder its steps.
 3. Check the hardware requirements it lists first (Linux, NVIDIA GPU, Docker
@@ -57,8 +57,8 @@ Install English Coach on this machine for me.
 ## Install
 
 ```sh
-git clone https://github.com/anilsoylu/english-coach.git
-cd english-coach
+git clone https://github.com/anilsoylu/local-english-coach.git
+cd local-english-coach
 sudo ./setup.sh
 ```
 

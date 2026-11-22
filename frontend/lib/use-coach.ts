@@ -22,9 +22,10 @@ export interface ChatMessage {
   error?: boolean;
 }
 
-/** `missing`: nothing is preparing a report (the session was never ended, or its analysis failed). */
+/** `missing`: nothing is preparing a report (the session was never ended, or its analysis failed).
+ * `waiting` carries the code metrics once the server has them, before the model's report. */
 export type ReportState =
-  | { status: "waiting" }
+  | { status: "waiting"; metrics?: Metrics }
   | { status: "ready"; metrics: Metrics; report: Report }
   | { status: "missing" }
   | { status: "timeout" };
@@ -45,6 +46,7 @@ export type SessionEvent =
   | { type: "restored"; sid: number; ended: boolean }
   | { type: "busy"; busy: boolean }
   | { type: "ended"; sid: number }
+  | { type: "metrics"; sid: number; metrics: Metrics }
   | {
       type: "settled";
       sid: number;
@@ -88,6 +90,12 @@ export function sessionReducer(s: Session, e: SessionEvent): Session {
       return s.phase === "chat" ? { ...s, busy: e.busy } : s;
     case "ended":
       return s.phase === "chat" && s.sid === e.sid ? awaitReport(e.sid) : s;
+    case "metrics":
+      return s.phase === "report" &&
+        s.sid === e.sid &&
+        s.report.status === "waiting"
+        ? { ...s, report: { status: "waiting", metrics: e.metrics } }
+        : s;
     case "settled":
       return s.phase === "report" &&
         s.sid === e.sid &&
@@ -105,8 +113,8 @@ export function sessionReducer(s: Session, e: SessionEvent): Session {
   }
 }
 
-const REPORT_POLL_MS = 3000;
-const REPORT_POLLS = 120; // 6 minutes: the analysis model can take a while on the first run
+const REPORT_POLL_MS = 1000;
+const REPORT_POLLS = 360; // 6 minutes: the analysis model can take a while on the first run
 
 let nextId = 1;
 const msg = (m: Omit<ChatMessage, "id">): ChatMessage => ({
@@ -212,6 +220,7 @@ export function useCoach() {
     const sid = awaiting;
     let cancelled = false;
     (async () => {
+      let metricsShown = false;
       for (let i = 0; i < REPORT_POLLS; i++) {
         const r = await api.report(sid).catch(() => null);
         if (cancelled) return;
@@ -230,6 +239,10 @@ export function useCoach() {
         if (r && !r.pending) {
           dispatch({ type: "settled", sid, report: { status: "missing" } });
           return;
+        }
+        if (r?.metrics && !metricsShown) {
+          metricsShown = true;
+          dispatch({ type: "metrics", sid, metrics: r.metrics });
         }
         await new Promise((res) => setTimeout(res, REPORT_POLL_MS));
         if (cancelled) return;

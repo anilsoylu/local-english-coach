@@ -41,7 +41,6 @@
   },
   "reportCard": {
     "title": "Relatório da sessão",
-    "analyzing": "Analisando, isso pode levar alguns minutos…",
     "timeout": "O relatório ainda está sendo preparado. Recarregue a página daqui a pouco; ele aparece aqui quando estiver pronto.",
     "messages": "mensagens",
     "avgWords": "palavras por mensagem",
@@ -53,7 +52,9 @@
     "newChunks": "Frases novas",
     "tooShort": "A sessão foi curta demais para analisar.",
     "missing": "Esta sessão ainda não tem relatório.",
-    "generate": "Gerar relatório"
+    "generate": "Gerar relatório",
+    "waiting": "Analisando, leva uns 30 segundos…",
+    "elapsed": "{seconds} s"
   },
   "sessionHistory": {
     "title": "Sessões anteriores",

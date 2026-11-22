@@ -287,7 +287,9 @@ def report(sid: int) -> dict:
     if not s:
         raise HTTPException(404)
     if not s["analyzed_at"]:
-        return {"ready": False, "pending": is_queued(sid)}
+        # The metrics are stored when the analysis is queued, so the report screen shows them while the model works.
+        pending = {"ready": False, "pending": is_queued(sid)}
+        return {**pending, "metrics": json.loads(s["metrics"])} if s["metrics"] else pending
     return {"ready": True, "metrics": json.loads(s["metrics"] or "{}"), "report": json.loads(s["report"] or "{}")}
 
 

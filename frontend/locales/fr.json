@@ -41,7 +41,6 @@
   },
   "reportCard": {
     "title": "Rapport de session",
-    "analyzing": "Analyse en cours, cela peut prendre quelques minutes…",
     "timeout": "Le rapport est encore en préparation. Recharge la page dans un moment, il apparaîtra ici.",
     "messages": "messages",
     "avgWords": "mots par message",
@@ -53,7 +52,9 @@
     "newChunks": "Nouvelles expressions",
     "tooShort": "La session était trop courte pour être analysée.",
     "missing": "Cette session n'a pas encore de rapport.",
-    "generate": "Générer le rapport"
+    "generate": "Générer le rapport",
+    "waiting": "Analyse en cours, environ 30 secondes…",
+    "elapsed": "{seconds} s"
   },
   "sessionHistory": {
     "title": "Sessions passées",

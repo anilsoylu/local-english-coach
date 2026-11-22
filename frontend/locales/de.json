@@ -41,7 +41,6 @@
   },
   "reportCard": {
     "title": "Sitzungsbericht",
-    "analyzing": "Wird analysiert, das kann ein paar Minuten dauern…",
     "timeout": "Der Bericht wird noch erstellt. Lad die Seite gleich noch mal, dann erscheint er hier.",
     "messages": "Nachrichten",
     "avgWords": "Wörter pro Nachricht",
@@ -53,7 +52,9 @@
     "newChunks": "Neue Wendungen",
     "tooShort": "Die Sitzung war zu kurz für eine Analyse.",
     "missing": "Diese Sitzung hat noch keinen Bericht.",
-    "generate": "Bericht erstellen"
+    "generate": "Bericht erstellen",
+    "waiting": "Wird analysiert, dauert etwa 30 Sekunden…",
+    "elapsed": "{seconds} s"
   },
   "sessionHistory": {
     "title": "Frühere Sitzungen",

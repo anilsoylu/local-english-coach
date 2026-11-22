@@ -12,6 +12,7 @@ import asyncio
 import json
 import re
 import sys
+import time
 from pathlib import Path
 
 import httpx
@@ -47,7 +48,11 @@ async def send(page, text):
 
 
 async def report_ready(page, timeout=240000):
-    await page.wait_for_selector('[data-testid="report"] h3, [data-testid="report"] .tabular-nums', timeout=timeout)
+    """The report card is settled: ready, missing or timed out, no longer waiting."""
+    await page.wait_for_function(
+        "document.querySelector('[data-testid=report]') && !document.querySelector('[data-testid=waiting]')",
+        timeout=timeout,
+    )
 
 
 async def end_session(page):
@@ -145,7 +150,17 @@ async def run(p, base, name, viewport, scheme, mobile):
     await page.unroute("**/end")
     failing["on"] = False
 
+    # The stats come from code, so they show at once; the model's part follows under a running seconds counter.
+    t0 = time.perf_counter()
     await end_session(page)
+    await page.wait_for_selector('[data-testid="stats"]', timeout=10000)
+    stats_after_s = round(time.perf_counter() - t0, 2)
+    stats_while_waiting = await page.is_visible('[data-testid="waiting"]')
+    await page.screenshot(path=f"{OUT}/{name}-4-waiting.png")
+    elapsed_before = await page.inner_text('[data-testid="elapsed"]')
+    await page.wait_for_timeout(2100)
+    elapsed_counts = await page.is_visible('[data-testid="waiting"]') \
+        and await page.inner_text('[data-testid="elapsed"]') != elapsed_before
     await report_ready(page)
     await page.wait_for_timeout(800)
     await page.screenshot(path=f"{OUT}/{name}-4-report.png")
@@ -230,7 +245,8 @@ async def run(p, base, name, viewport, scheme, mobile):
         "name": name, "turkish_ui": turkish_ui, "html_lang": html_lang, "current_language_marked": current_marked,
         "textarea_attrs": attrs, "warmup_items": warm, "no_home_link_in_chat": no_home_link_in_chat,
         "sid_kept_offline": sid_kept_offline, "resumed_after_reload": resumed,
-        "end_failure_stays_in_chat": end_failure_stays_in_chat, "report_screen": report_screen,
+        "end_failure_stays_in_chat": end_failure_stays_in_chat, "stats_while_waiting": stats_while_waiting,
+        "stats_after_s": stats_after_s, "elapsed_counts": elapsed_counts, "report_screen": report_screen,
         "conversation_collapsed": conversation_collapsed, "horizontal_overflow_px": overflow,
         "report_after_reload": report_after_reload, "sid_cleared_on_home": sid_cleared_on_home,
         "past_report_opens": past_report_opens, "new_session_same_scenario": new_session_same_scenario,
@@ -241,7 +257,8 @@ async def run(p, base, name, viewport, scheme, mobile):
 
 
 CHECKS = ["turkish_ui", "current_language_marked", "warmup_items", "no_home_link_in_chat", "sid_kept_offline",
-          "resumed_after_reload", "end_failure_stays_in_chat", "report_screen", "conversation_collapsed",
+          "resumed_after_reload", "end_failure_stays_in_chat", "stats_while_waiting", "elapsed_counts", "report_screen",
+          "conversation_collapsed",
           "report_after_reload", "sid_cleared_on_home", "past_report_opens", "new_session_same_scenario",
           "tap_during_load_wins", "stale_send_goes_to_report", "generate_report"]
 

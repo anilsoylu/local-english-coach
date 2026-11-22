@@ -41,7 +41,6 @@
   },
   "reportCard": {
     "title": "会话报告",
-    "analyzing": "正在分析，可能需要几分钟…",
     "timeout": "报告还在生成中。过一会儿刷新页面，准备好后会显示在这里。",
     "messages": "条消息",
     "avgWords": "平均词数",
@@ -53,7 +52,9 @@
     "newChunks": "新句型",
     "tooShort": "会话太短，无法分析。",
     "missing": "这个会话还没有报告。",
-    "generate": "生成报告"
+    "generate": "生成报告",
+    "waiting": "正在分析，大约需要30秒…",
+    "elapsed": "{seconds} 秒"
   },
   "sessionHistory": {
     "title": "往期会话",

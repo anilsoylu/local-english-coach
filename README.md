@@ -116,7 +116,7 @@ The end-of-session review runs once per session, so it can use a bigger model. T
 | gemma4:12b | 29 s | clean Turkish, but once praised verbs the learner had gotten wrong |
 | qwen3.5:9b | 16 s | broken Turkish and invented grammar rules |
 
-A later run of `gemma4:26b-a4b` with `--native tr` and `--native es` took 19.7 s and 21.5 s on average. In both languages the explanations were correct and addressed the learner informally, in the second person.
+The report prompt now asks for compact single-line JSON and no longer repeats the schema as text. That cut the generated tokens by about 40%. With `gemma4:26b-a4b` already loaded, `--native tr` went from 14.7 s to 10.3 s on average and `--native es` from 13.8 s to 9.8 s. In both languages the explanations stayed correct and addressed the learner informally, in the second person. A real session end also waits 8 to 13 s to load the model, because the chat model and the analysis model don't fit in 8 GB of VRAM together.
 
 `gemma4:26b-a4b` is an 18 GB mixture-of-experts model. About a quarter of it sits in system RAM on an 8 GB card, but it only activates 4B parameters per token, so it still finishes faster than the 12B model that fits entirely on the GPU.
 

@@ -21,7 +21,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from coach import config  # noqa: E402
-from coach.analyze import analysis_prompt, call_model, clean_report  # noqa: E402
+from coach.analyze import NUM_CTX, analysis_prompt, call_model, clean_report  # noqa: E402
 from coach.memory import detect_lang  # noqa: E402
 
 PRAISE = re.compile(r"harika|mükemmel|muhteşem|!", re.I)  # Turkish words plus "!", which no language needs here
@@ -49,20 +49,25 @@ def main() -> None:
     summary = []
     for model in args.models:
         t0 = time.perf_counter()
-        httpx.post(f"{config.OLLAMA_URL}/api/chat", json={"model": model, "messages": []}, timeout=900)
+        # The same num_ctx as call_model, or the first analysis reloads the model at the larger context.
+        httpx.post(f"{config.OLLAMA_URL}/api/chat", timeout=900,
+                   json={"model": model, "messages": [], "options": {"num_ctx": NUM_CTX}})
         load_s = time.perf_counter() - t0
         ps = httpx.get(f"{config.OLLAMA_URL}/api/ps").json().get("models", [])
         gpu = next((round(100 * m["size_vram"] / m["size"]) for m in ps if m.get("name") == model and m.get("size")), None)
-        times, raw_err, kept_err, praise, reports = [], 0, 0, 0, {}
+        times, raw_err, kept_err, praise, reports, prompt_tok, out_tok = [], 0, 0, 0, {}, [], []
         for s in sessions:
             turns = to_turns(s["turns"], args.native)
             prompt = analysis_prompt(turns, args.native, "Deniz", "A2+", [], known)
             t1 = time.perf_counter()
+            stats = {}
             try:
-                rep = call_model(prompt, model=model)
+                rep = call_model(prompt, model=model, stats=stats)
             except Exception as e:  # invalid JSON or timeout counts as a failure
                 rep = {"error": str(e)}
             times.append(time.perf_counter() - t1)
+            prompt_tok.append(stats.get("prompt_eval_count") or 0)
+            out_tok.append(stats.get("eval_count") or 0)
             raw_err += len(rep.get("errors", []))
             if "error" not in rep:
                 clean_report(rep, turns, known)
@@ -72,6 +77,7 @@ def main() -> None:
         (out_dir / f"analysis__{model.replace(':', '_')}.json").write_text(json.dumps(reports, ensure_ascii=False, indent=2))
         summary.append({"model": model, "load_s": round(load_s, 1), "gpu_%": gpu,
                         "avg_s": round(sum(times) / len(times), 1), "max_s": round(max(times), 1),
+                        "prompt_tok": prompt_tok, "out_tok": out_tok,
                         "errors_raw": raw_err, "errors_kept": kept_err, "praise_in_feedback": praise,
                         "failed": sum("error" in r for r in reports.values())})
         print(f"\n######## {model}")

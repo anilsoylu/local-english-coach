@@ -17,6 +17,7 @@ OLLAMA = config.OLLAMA_URL
 ANALYSIS_MODEL = config.ANALYSIS_MODEL
 CHAT_MODEL = config.CHAT_MODEL
 STALE_AFTER = timedelta(hours=2)
+NUM_CTX = 16384  # a long session's transcript plus the report
 
 log = logging.getLogger("coach.analyze")
 _lock = threading.Lock()  # one analysis at a time: GPU holds one model
@@ -75,8 +76,8 @@ Return JSON with:
 - chunks: 2-3 useful spoken phrases for situations in this chat that {name} didn't know (not single words). Meaning in simple {language}, example in English.
 - recurring_errors: updated short list (English, max 5) of error patterns that keep coming back, merging the old list with what you saw.
 - level_estimate: from the USER lines.
-- summary: 2 sentences in English for the coach to read next time: what {name} talked about and what to practice.
-- feedback: 2-3 short sentences in {language}, speaking directly to {name}: \
+- summary: 1 sentence in English for the coach to read next time: what {name} talked about and what to practice.
+- feedback: 2 short sentences in {language}, speaking directly to {name}: \
 one concrete thing that went well and one thing to focus on. Only praise what the USER lines actually show. \
 Plain and specific. No praise words like "great" or "perfect", no exclamation marks, no lists, no dashes.
 
@@ -124,15 +125,24 @@ def text_metrics(turns: list[dict]) -> dict:
     }
 
 
-def call_model(prompt: str, model: str = ANALYSIS_MODEL, schema: dict = SCHEMA) -> dict:
+COMPACT = "\n\nAnswer with compact JSON on a single line, no indentation."
+
+
+def call_model(prompt: str, model: str = ANALYSIS_MODEL, schema: dict = SCHEMA, stats: dict | None = None) -> dict:
+    """`stats`, when given, receives Ollama's token counts and durations (bench/analysis.py prints them)."""
     body = {
         "model": model, "stream": False, "think": False, "format": schema,
-        "messages": [{"role": "user", "content": prompt + "\n\nJSON schema:\n" + json.dumps(schema)}],
-        "options": {"temperature": 0, "num_ctx": 16384}, "keep_alive": config.KEEP_ALIVE,
+        # `format` enforces the schema, so the prompt doesn't repeat it. Compact JSON: indentation was about a third of
+        # the generated tokens, and generation is most of the report's wait (bench/analysis.py).
+        "messages": [{"role": "user", "content": prompt + COMPACT}],
+        "options": {"temperature": 0, "num_ctx": NUM_CTX}, "keep_alive": config.KEEP_ALIVE,
     }
     r = httpx.post(f"{OLLAMA}/api/chat", json=body, timeout=900)
     r.raise_for_status()
-    return json.loads(r.json()["message"]["content"])
+    data = r.json()
+    if stats is not None:
+        stats.update({k: data.get(k) for k in ("prompt_eval_count", "eval_count", "load_duration", "total_duration")})
+    return json.loads(data["message"]["content"])
 
 
 def clean_report(rep: dict, turns: list[dict], known: list[str]) -> None:
@@ -184,12 +194,25 @@ def analysis_slot():
 
 
 def queue_analysis(ids: list[int]) -> None:
-    """Analyzes the sessions one after another in a background thread, skipping any that already have a job queued
-    or running. Jobs from different calls wait for each other on the analysis slot."""
+    """Stores each session's metrics, then analyzes the sessions one after another in a background thread, skipping
+    any that already have a job queued or running. Jobs from different calls wait for each other on the analysis
+    slot."""
     with _queued_lock:
         ids = [i for i in ids if i not in _queued]
         _queued.update(ids)
     if ids:
+        # The metrics need no model, so the report screen shows them at once (GET /report returns them while pending).
+        # A failed write only costs that early view: the job must still start, or the ids stay in _queued for good.
+        db = memory.connect()
+        for sid in ids:
+            try:
+                with db:
+                    s, turns = _load(db, sid)
+                    db.execute("UPDATE sessions SET metrics=? WHERE id=? AND analyzed_at IS NULL",
+                               (json.dumps(session_metrics(db, s, turns)[0]), sid))
+            except Exception:
+                log.exception("storing the early metrics failed for session %s", sid)
+        db.close()
         threading.Thread(target=lambda: [analyze_session(i) for i in ids], daemon=True).start()
 
 
@@ -211,18 +234,17 @@ def analyze_session(sid: int) -> None:
             _queued.discard(sid)
 
 
-def _analyze(sid: int) -> None:
-    db = memory.connect()
+def _load(db, sid: int) -> tuple[dict, list[dict]]:
+    """The session row and its turns."""
     s = dict(db.execute("SELECT * FROM sessions WHERE id=?", (sid,)).fetchone())
-    if s["analyzed_at"]:
-        return
-    turns = [dict(t) for t in db.execute("SELECT * FROM turns WHERE session_id=? ORDER BY id", (sid,))]
+    return s, [dict(t) for t in db.execute("SELECT * FROM turns WHERE session_id=? ORDER BY id", (sid,))]
+
+
+def session_metrics(db, s: dict, turns: list[dict]) -> tuple[dict, list[tuple[int, str, bool]]]:
+    """The metrics computed in code, and the Leitner review (id, phrase, used) of each phrase offered in the session."""
     user_texts = [t["content"] for t in turns if t["role"] == "user"]
     metrics = text_metrics(turns)
-
     offered = json.loads(s["offered_chunks"])
-    # Leitner reviews are written in the same transaction as analyzed_at, so a failed model call followed by a retry
-    # doesn't move the phrases twice.
     reviews = []
     for cid in offered:
         row = db.execute("SELECT phrase FROM chunks WHERE id=?", (cid,)).fetchone()
@@ -230,6 +252,17 @@ def _analyze(sid: int) -> None:
             reviews.append((cid, row["phrase"], memory.phrase_used(row["phrase"], user_texts)))
     metrics["chunks_offered"] = len(offered)
     metrics["chunks_used"] = [phrase for _, phrase, ok in reviews if ok]
+    return metrics, reviews
+
+
+def _analyze(sid: int) -> None:
+    db = memory.connect()
+    s, turns = _load(db, sid)
+    if s["analyzed_at"]:
+        return
+    # Leitner reviews are written in the same transaction as analyzed_at, so a failed model call followed by a retry
+    # doesn't move the phrases twice.
+    metrics, reviews = session_metrics(db, s, turns)
 
     def review_chunks() -> None:
         for cid, _, ok in reviews:

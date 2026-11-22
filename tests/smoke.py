@@ -41,7 +41,7 @@ def ollama_down() -> list[str]:
     the learner never wrote in still ends and gets its metrics without a model."""
     failures = []
     t0 = time.perf_counter()
-    with test_server(port=8798, OLLAMA_URL="http://127.0.0.1:9") as (base, _):
+    with test_server(port=8798, OLLAMA_URL="http://127.0.0.1:9") as (base, log):
         if (ready := time.perf_counter() - t0) > 10:
             failures.append(f"server took {ready:.1f}s to start with Ollama down")
         c = httpx.Client(base_url=base, timeout=30)
@@ -61,12 +61,26 @@ def ollama_down() -> list[str]:
         rep = wait_report(c, sid, tries=20, wait=0.5)
         if not rep["ready"] or rep["report"] != {} or rep["metrics"]["user_turns"] != 0:
             failures.append(f"session without learner turns not analyzed in code: {rep}")
+        # Broken offered_chunks: storing the early metrics fails, but the job still runs, fails, and frees the session.
+        sid = c.post("/api/session", json={"scenario": "smalltalk"}).json()["session_id"]
+        with sqlite3.connect(log.parent / "test.db") as db:
+            db.execute("UPDATE sessions SET offered_chunks='not json' WHERE id=?", (sid,))
+        if c.post(f"/api/session/{sid}/end").status_code != 200:
+            failures.append("ending a session with broken offered_chunks failed")
+        rep = c.get(f"/api/session/{sid}/report").json()
+        for _ in range(20):
+            if not rep["pending"]:
+                break
+            time.sleep(0.5)
+            rep = c.get(f"/api/session/{sid}/report").json()
+        if rep != {"ready": False, "pending": False}:
+            failures.append(f"a failed metrics write left the session pending: {rep}")
     print("ollama-down checks:", "ok" if not failures else failures)
     return failures
 
 
 def wait_report(c: httpx.Client, sid: int, tries: int = 120, wait: float = 3) -> dict:
-    """Polls like the UI does: every 3 s for up to 6 minutes by default."""
+    """Polls for up to 6 minutes by default, like the UI."""
     rep = {"ready": False}
     for _ in range(tries):
         rep = c.get(f"/api/session/{sid}/report").json()
@@ -157,6 +171,9 @@ def past_sessions() -> list[str]:
     session(14, user_turns=3)  # ended, analysis failed earlier: retried at server start
     session(15, user_turns=1, ended=False)  # abandoned, too short for the model
     session(16, user_turns=2, ended=False)  # abandoned, needs the model
+    # 16 was offered a phrase the learner used and one that was deleted since: both count as offered, one as used.
+    db.execute("INSERT INTO chunks(id, user_id, phrase, due_date) VALUES (1, 'test', 'I go.', '2026-01-01')")
+    db.execute("UPDATE sessions SET offered_chunks='[1, 999]' WHERE id=16")
     db.commit()
     db.close()
 
@@ -189,8 +206,15 @@ def past_sessions() -> list[str]:
         for sid in (14, 16, 16, 16):
             if c.post(f"/api/session/{sid}/end").json() != {"ok": True}:
                 failures.append(f"POST /end {sid} failed")
-        if not c.get("/api/session/16/report").json()["pending"]:
+        rep16 = c.get("/api/session/16/report").json()
+        if not rep16["pending"]:
             failures.append("Generate report did not queue the analysis")
+        # The metrics need no model: they are there while the analysis is still running.
+        m = rep16.get("metrics") or {}
+        if rep16["ready"] or (m.get("user_turns"), m.get("chunks_offered"), m.get("chunks_used")) != (2, 2, ["I go."]):
+            failures.append(f"metrics not returned while the report is pending: {rep16}")
+        if (c.get("/api/session/14/report").json().get("metrics") or {}).get("user_turns") != 3:
+            failures.append("the startup retry did not store the metrics")
         for _ in range(80):  # two failed jobs, each a slow analysis call plus a slow chat-model reload
             if not c.get("/api/session/16/report").json()["pending"]:
                 break
@@ -349,6 +373,8 @@ def main() -> int:
         if len(state["turns"]) != 3 + 2 * len(MESSAGES) or state["ended"]:
             failures.append(f"resume state wrong: {len(state['turns'])} turns, ended={state['ended']}")
         c.post(f"/api/session/{sid}/end")
+        if (first := c.get(f"/api/session/{sid}/report").json())["ready"] or first["metrics"]["help_count"] != 1:
+            failures.append(f"metrics not available as soon as the session ended: {first}")
         if not c.get(f"/api/session/{sid}").json()["ended"]:
             failures.append("session not marked ended")
         if c.get("/").headers.get("cache-control") != "no-cache":

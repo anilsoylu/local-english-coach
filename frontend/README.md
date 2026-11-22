@@ -9,6 +9,7 @@ bun install        # dependencies, from bun.lock
 bun run dev        # dev server on http://localhost:3000
 bun run build      # static export to out/
 bun run lint       # Biome checks (bun run format applies the fixes)
+bun run test       # unit tests (bun test); test files stay out of tsc, which has no Bun types
 ```
 
 The UI calls the API with relative paths (`api/...` in `lib/api.ts`), and `next.config.ts` has no proxy, because

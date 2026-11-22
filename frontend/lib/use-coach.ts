@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   api,
   type Metrics,
@@ -20,12 +20,66 @@ export interface ChatMessage {
   error?: boolean;
 }
 
-export type Phase = "idle" | "chat" | "report";
-
 export type ReportState =
   | { status: "waiting" }
   | { status: "ready"; metrics: Metrics; report: Report }
   | { status: "timeout" };
+
+/** The session lifecycle. Transitions are in `sessionReducer`; docs/state-machines.md has the table. */
+export type Session =
+  | { phase: "idle"; starting: boolean }
+  | { phase: "chat"; sid: number; warmup: WarmupChunk[]; busy: boolean }
+  | { phase: "report"; sid: number; report: ReportState };
+
+export type SessionEvent =
+  | { type: "start" }
+  | { type: "startFailed" }
+  | { type: "started"; sid: number; warmup: WarmupChunk[] }
+  | { type: "restored"; sid: number; ended: boolean }
+  | { type: "busy"; busy: boolean }
+  | { type: "ended"; sid: number }
+  | {
+      type: "settled";
+      sid: number;
+      report: Exclude<ReportState, { status: "waiting" }>;
+    }
+  | { type: "reset" };
+
+export const IDLE: Session = { phase: "idle", starting: false };
+
+const awaitReport = (sid: number): Session => ({
+  phase: "report",
+  sid,
+  report: { status: "waiting" },
+});
+
+/** Events that don't apply to the current state leave it unchanged. */
+export function sessionReducer(s: Session, e: SessionEvent): Session {
+  switch (e.type) {
+    case "start":
+      return s.phase === "idle" ? { phase: "idle", starting: true } : s;
+    case "startFailed":
+      return s.phase === "idle" ? IDLE : s;
+    case "started":
+      return { phase: "chat", sid: e.sid, warmup: e.warmup, busy: false };
+    case "restored":
+      return e.ended
+        ? awaitReport(e.sid)
+        : { phase: "chat", sid: e.sid, warmup: [], busy: false };
+    case "busy":
+      return s.phase === "chat" ? { ...s, busy: e.busy } : s;
+    case "ended":
+      return s.phase === "chat" && s.sid === e.sid ? awaitReport(e.sid) : s;
+    case "settled":
+      return s.phase === "report" &&
+        s.sid === e.sid &&
+        s.report.status === "waiting"
+        ? { ...s, report: e.report }
+        : s;
+    case "reset":
+      return IDLE;
+  }
+}
 
 const REPORT_POLL_MS = 3000;
 const REPORT_POLLS = 120; // 6 minutes: the analysis model can take a while on the first run
@@ -49,51 +103,16 @@ export function useCoach() {
   const t = useMessages("session", DEFAULTS);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [scenario, setScenarioState] = useState("");
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [sid, setSid] = useState<number | null>(null);
-  const [warmup, setWarmup] = useState<WarmupChunk[]>([]);
+  const [session, dispatch] = useReducer(sessionReducer, IDLE);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [starting, setStarting] = useState(false);
-  const [report, setReport] = useState<ReportState | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   // When the coach finished its last reply: the learner's thinking time is measured from here.
   const readyAt = useRef<number | null>(null);
-  // Bumped on reset/start so a poll loop from an earlier session stops writing state.
-  const pollGen = useRef(0);
 
   const setScenario = useCallback((id: string) => {
     setScenarioState(id);
     store.set("scenario", id);
-  }, []);
-
-  const pollReport = useCallback(async (id: number) => {
-    const gen = ++pollGen.current;
-    setPhase("report");
-    setReport({ status: "waiting" });
-    for (let i = 0; i < REPORT_POLLS; i++) {
-      const r = await api.report(id).catch(() => null);
-      if (gen !== pollGen.current) return;
-      if (r?.ready) {
-        setReport({
-          status: "ready",
-          metrics: r.metrics ?? {},
-          report: r.report ?? {},
-        });
-        return;
-      }
-      await new Promise((res) => setTimeout(res, REPORT_POLL_MS));
-      if (gen !== pollGen.current) return;
-    }
-    setReport({ status: "timeout" });
-  }, []);
-
-  const enterChat = useCallback((id: number) => {
-    setSid(id);
-    store.set("sid", String(id));
-    setPhase("chat");
-    readyAt.current = performance.now();
   }, []);
 
   // First load: scenarios, then pick the session back up if a reload or sleep interrupted it.
@@ -123,15 +142,13 @@ export function useCoach() {
           msg({ from: t.role, content: t.content, help: Boolean(t.is_help) }),
         ),
       );
-      if (s.ended) {
-        setSid(saved);
-        void pollReport(saved);
-      } else enterChat(saved);
+      if (!s.ended) readyAt.current = performance.now();
+      dispatch({ type: "restored", sid: saved, ended: s.ended });
     })();
     return () => {
       cancelled = true;
     };
-  }, [enterChat, pollReport, t]);
+  }, [t]);
 
   // The model leaves VRAM after 15 idle minutes; load it whenever the page is opened or shown again.
   useEffect(() => {
@@ -142,31 +159,71 @@ export function useCoach() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
+  // Polls while a report is awaited; leaving that state stops it.
+  const awaiting =
+    session.phase === "report" && session.report.status === "waiting"
+      ? session.sid
+      : null;
+  useEffect(() => {
+    if (awaiting === null) return;
+    const sid = awaiting;
+    let cancelled = false;
+    (async () => {
+      for (let i = 0; i < REPORT_POLLS; i++) {
+        const r = await api.report(sid).catch(() => null);
+        if (cancelled) return;
+        if (r?.ready) {
+          dispatch({
+            type: "settled",
+            sid,
+            report: {
+              status: "ready",
+              metrics: r.metrics ?? {},
+              report: r.report ?? {},
+            },
+          });
+          return;
+        }
+        await new Promise((res) => setTimeout(res, REPORT_POLL_MS));
+        if (cancelled) return;
+      }
+      dispatch({ type: "settled", sid, report: { status: "timeout" } });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [awaiting]);
+
   const start = useCallback(
     async (id: string = scenario) => {
       if (!id) return;
-      pollGen.current++;
-      setStarting(true);
+      dispatch({ type: "start" });
       setError(null);
-      setReport(null);
       try {
         const data = await api.start(id);
-        setWarmup(data.warmup);
         setMessages([msg({ from: "assistant", content: data.opening })]);
-        enterChat(data.session_id);
+        store.set("sid", String(data.session_id));
+        readyAt.current = performance.now();
+        dispatch({
+          type: "started",
+          sid: data.session_id,
+          warmup: data.warmup,
+        });
       } catch {
         setError(t("startFailed"));
-      } finally {
-        setStarting(false);
+        dispatch({ type: "startFailed" });
       }
     },
-    [scenario, enterChat, t],
+    [scenario, t],
   );
+
+  const chatSid = session.phase === "chat" ? session.sid : null;
+  const busy = session.phase === "chat" && session.busy;
 
   const send = useCallback(
     async (raw: string, isHelp = false) => {
       const text = raw.trim();
-      if (!text || busy || sid === null) return;
+      if (!text || busy || chatSid === null) return;
       const responseMs =
         !isHelp && readyAt.current !== null
           ? Math.round(performance.now() - readyAt.current)
@@ -175,13 +232,13 @@ export function useCoach() {
       const reply = msg({ from: "assistant", content: "", streaming: true });
       setMessages((m) => [...m, mine, reply]);
       if (!isHelp) setDraft("");
-      setBusy(true);
+      dispatch({ type: "busy", busy: true });
       const update = (patch: Partial<ChatMessage>) =>
         setMessages((m) =>
           m.map((x) => (x.id === reply.id ? { ...x, ...patch } : x)),
         );
       try {
-        const full = await api.message(sid, text, responseMs, (soFar) =>
+        const full = await api.message(chatSid, text, responseMs, (soFar) =>
           update({ content: soFar }),
         );
         update({ content: full, streaming: false });
@@ -200,41 +257,32 @@ export function useCoach() {
           }),
         ]);
       } finally {
-        setBusy(false);
+        dispatch({ type: "busy", busy: false });
         readyAt.current = performance.now();
       }
     },
-    [busy, sid, t],
+    [busy, chatSid, t],
   );
 
   const end = useCallback(async () => {
-    if (sid === null) return;
-    const id = sid;
-    await api.end(id).catch(() => undefined);
-    void pollReport(id);
-  }, [sid, pollReport]);
+    if (chatSid === null) return;
+    await api.end(chatSid).catch(() => undefined);
+    dispatch({ type: "ended", sid: chatSid });
+  }, [chatSid]);
 
   // The session id stays stored until here, so a reload on the report screen shows the report again.
   const reset = useCallback(() => {
-    pollGen.current++;
     store.set("sid", null);
-    setPhase("idle");
-    setSid(null);
     setMessages([]);
-    setWarmup([]);
-    setReport(null);
+    dispatch({ type: "reset" });
   }, []);
 
   return {
     scenarios,
     scenario,
     setScenario,
-    phase,
-    warmup,
+    session,
     messages,
-    busy,
-    starting,
-    report,
     draft,
     setDraft,
     error,

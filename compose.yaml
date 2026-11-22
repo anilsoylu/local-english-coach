@@ -3,7 +3,7 @@ services:
     build:
       context: .
       target: app
-    image: english-coach:latest
+    image: local-english-coach:latest
     # Comes back after a reboot. A container you stop by hand stays stopped.
     restart: unless-stopped
     # Host network: reaches Ollama on 127.0.0.1:11434 and can bind the host's Tailscale IP

@@ -122,7 +122,6 @@ interface FrameProps {
   children?: ReactNode;
 }
 
-/** The page shell: header with the app name, an optional subtitle and actions, then the content. */
 function Frame({ subtitle, actions, children }: FrameProps) {
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">

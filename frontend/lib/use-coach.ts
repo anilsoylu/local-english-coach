@@ -159,7 +159,6 @@ export function useCoach() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
-  // Polls while a report is awaited; leaving that state stops it.
   const awaiting =
     session.phase === "report" && session.report.status === "waiting"
       ? session.sid

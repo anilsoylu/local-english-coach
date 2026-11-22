@@ -21,7 +21,7 @@ STALE_AFTER = timedelta(hours=2)
 log = logging.getLogger("coach.analyze")
 _lock = threading.Lock()  # one analysis at a time: GPU holds one model
 
-# One error and one chunk, as clean_report and the database expect them. chats.py asks for the same items.
+# One error and one chunk, as clean_report and the database expect them.
 ERROR_ITEM = {"type": "object", "properties": {
     "kind": {"type": "string"},
     "original": {"type": "string"},
@@ -196,7 +196,6 @@ def _analyze(sid: int) -> None:
     user_texts = [t["content"] for t in turns if t["role"] == "user"]
     metrics = text_metrics(turns)
 
-    # Spaced repetition: offered phrases the learner actually used move up a box.
     offered = json.loads(s["offered_chunks"])
     used = []
     with db:

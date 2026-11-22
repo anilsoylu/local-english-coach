@@ -10,12 +10,18 @@
     "message": "メッセージ",
     "send": "送信",
     "wait": "待って",
-    "stuck": "行き詰まった"
+    "stuck": "行き詰まった",
+    "home": "ホーム",
+    "showConversation": "会話を表示",
+    "hideConversation": "会話を隠す"
   },
   "session": {
     "unreachable": "サーバーに接続できませんでした。",
     "startFailed": "セッションを開始できませんでした。もう一度シチュエーションをタップしてみてください。",
-    "sendFailed": "接続エラーです。メッセージは入力欄に残っています。もう一度送ってみてください。"
+    "sendFailed": "接続エラーです。メッセージは入力欄に残っています。もう一度送ってみてください。",
+    "endFailed": "セッションを終了できませんでした。接続を確認して、もう一度「終了」を押してください。",
+    "openFailed": "そのセッションを開けませんでした。もう一度試してください。",
+    "generateFailed": "レポートを作成できませんでした。接続を確認して、もう一度試してください。"
   },
   "scenarioPicker": {
     "title": "今日は何について話しましょうか？",
@@ -45,6 +51,17 @@
     "corrections": "添削",
     "natural": "より自然な言い方",
     "newChunks": "新しいフレーズ",
-    "tooShort": "分析するには会話が短すぎました。"
+    "tooShort": "分析するには会話が短すぎました。",
+    "missing": "このセッションにはまだレポートがありません。",
+    "generate": "レポートを作成"
+  },
+  "sessionHistory": {
+    "title": "過去のセッション",
+    "messages": "メッセージ: {count}",
+    "errors": "添削: {count}",
+    "preparing": "レポート作成中",
+    "generate": "レポートを作成",
+    "more": "もっと見る",
+    "loadFailed": "過去のセッションを読み込めませんでした。"
   }
 }

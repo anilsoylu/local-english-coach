@@ -10,12 +10,18 @@
     "message": "Mesajın",
     "send": "Gönder",
     "wait": "Bekle",
-    "stuck": "Takıldım"
+    "stuck": "Takıldım",
+    "home": "Ana sayfa",
+    "showConversation": "Sohbeti göster",
+    "hideConversation": "Sohbeti gizle"
   },
   "session": {
     "unreachable": "Sunucuya ulaşılamadı.",
     "startFailed": "Seans başlatılamadı. Bir duruma tekrar dokun.",
-    "sendFailed": "Bağlantı hatası, mesajın kutuda. Tekrar gönder."
+    "sendFailed": "Bağlantı hatası, mesajın kutuda. Tekrar gönder.",
+    "endFailed": "Seans bitirilemedi. Bağlantını kontrol edip Bitir'e tekrar dokun.",
+    "openFailed": "Bu seans açılamadı. Tekrar dene.",
+    "generateFailed": "Rapor istenemedi. Bağlantını kontrol edip tekrar dene."
   },
   "scenarioPicker": {
     "title": "Bugün ne konuşalım?",
@@ -45,6 +51,17 @@
     "corrections": "Düzeltmeler",
     "natural": "Daha doğal söyleyiş",
     "newChunks": "Yeni kalıplar",
-    "tooShort": "Analiz için seans çok kısaydı."
+    "tooShort": "Analiz için seans çok kısaydı.",
+    "missing": "Bu seansın henüz raporu yok.",
+    "generate": "Rapor oluştur"
+  },
+  "sessionHistory": {
+    "title": "Geçmiş seanslar",
+    "messages": "Mesaj: {count}",
+    "errors": "Düzeltme: {count}",
+    "preparing": "Rapor hazırlanıyor",
+    "generate": "Rapor oluştur",
+    "more": "Daha fazla göster",
+    "loadFailed": "Geçmiş seansların yüklenemedi."
   }
 }

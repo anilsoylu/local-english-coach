@@ -10,12 +10,18 @@
     "message": "메시지",
     "send": "보내기",
     "wait": "잠깐",
-    "stuck": "막혔어요"
+    "stuck": "막혔어요",
+    "home": "홈",
+    "showConversation": "대화 보기",
+    "hideConversation": "대화 숨기기"
   },
   "session": {
     "unreachable": "서버에 연결할 수 없어요.",
     "startFailed": "세션을 시작하지 못했어요. 상황을 다시 눌러 주세요.",
-    "sendFailed": "연결 오류예요. 메시지는 입력창에 남아 있어요. 다시 보내 주세요."
+    "sendFailed": "연결 오류예요. 메시지는 입력창에 남아 있어요. 다시 보내 주세요.",
+    "endFailed": "세션을 끝내지 못했어요. 연결을 확인하고 끝내기를 다시 눌러 주세요.",
+    "openFailed": "그 세션을 열지 못했어요. 다시 시도해 주세요.",
+    "generateFailed": "리포트를 생성하지 못했어요. 연결을 확인하고 다시 시도해 주세요."
   },
   "scenarioPicker": {
     "title": "오늘은 무슨 이야기를 할까요?",
@@ -45,6 +51,17 @@
     "corrections": "교정",
     "natural": "더 자연스러운 표현",
     "newChunks": "새 표현",
-    "tooShort": "분석하기에는 세션이 너무 짧았어요."
+    "tooShort": "분석하기에는 세션이 너무 짧았어요.",
+    "missing": "이 세션에는 아직 리포트가 없어요.",
+    "generate": "리포트 생성"
+  },
+  "sessionHistory": {
+    "title": "지난 세션",
+    "messages": "메시지: {count}",
+    "errors": "교정: {count}",
+    "preparing": "리포트 준비 중",
+    "generate": "리포트 생성",
+    "more": "더 보기",
+    "loadFailed": "지난 세션을 불러오지 못했어요."
   }
 }

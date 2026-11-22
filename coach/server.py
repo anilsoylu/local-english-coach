@@ -11,13 +11,13 @@ from pathlib import Path
 
 import httpx
 import yaml
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from coach import config, languages, memory
-from coach.analyze import analyze_session, retry_pending
+from coach.analyze import is_queued, queue_analysis, retry_pending
 from coach.prompts import PROMPT_VERSION, opening, scenario_text, system_prompt
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -113,10 +113,39 @@ def set_profile(body: ProfileBody) -> dict:
     return {"native_language": body.native_language}
 
 
+def scenario_title(scenario_id: str, native: str) -> str:
+    """The title in the native language; the id for a scenario that was removed from scenarios.yaml."""
+    sc = SCENARIOS.get(scenario_id)
+    return languages.pick(sc["title"], native) if sc else scenario_id
+
+
 @app.get("/api/scenarios")
 def scenarios() -> list[dict]:
     native = memory.get_profile(memory.connect(), USER_ID)["native_language"]
-    return [{"id": s["id"], "title": languages.pick(s["title"], native)} for s in SCENARIOS.values()]
+    return [{"id": s["id"], "title": scenario_title(s["id"], native)} for s in SCENARIOS.values()]
+
+
+@app.get("/api/sessions")
+def sessions(offset: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=50)) -> dict:
+    """Past sessions with at least one learner turn, newest first. `report` is ready, pending (queued or running)
+    or none (never ended, or its analysis failed); the UI offers "Generate report" for none."""
+    db = memory.connect()
+    native = memory.get_profile(db, USER_ID)["native_language"]
+    rows = db.execute(
+        "SELECT s.id, s.scenario, s.started_at, s.analyzed_at, s.report, COUNT(t.id) AS messages"
+        " FROM sessions s JOIN turns t ON t.session_id = s.id AND t.role = 'user'"
+        " WHERE s.user_id = ? GROUP BY s.id ORDER BY s.id DESC LIMIT ? OFFSET ?",
+        (USER_ID, limit + 1, offset),
+    ).fetchall()
+    return {
+        "sessions": [{
+            "id": r["id"], "scenario": r["scenario"], "title": scenario_title(r["scenario"], native),
+            "started_at": r["started_at"], "messages": r["messages"],
+            "errors": len(json.loads(r["report"] or "{}").get("errors", [])) if r["analyzed_at"] else None,
+            "report": "ready" if r["analyzed_at"] else "pending" if is_queued(r["id"]) else "none",
+        } for r in rows[:limit]],
+        "more": len(rows) > limit,
+    }
 
 
 @app.post("/api/session")
@@ -236,12 +265,18 @@ async def message(sid: int, body: MessageBody, request: Request) -> StreamingRes
 
 
 @app.post("/api/session/{sid}/end")
-def end(sid: int, tasks: BackgroundTasks) -> dict:
+def end(sid: int) -> dict:
+    """Ends the session if it is still active and queues its analysis unless it has a report or a job already.
+    Safe to repeat: it is also how "Generate report" retries an abandoned session or a failed analysis."""
     db = memory.connect()
     with db:
-        n = db.execute("UPDATE sessions SET ended_at=? WHERE id=? AND ended_at IS NULL", (memory.now(), sid)).rowcount
-    if n:
-        tasks.add_task(analyze_session, sid)
+        db.execute("UPDATE sessions SET ended_at=? WHERE id=? AND user_id=? AND ended_at IS NULL",
+                   (memory.now(), sid, USER_ID))
+    s = db.execute("SELECT analyzed_at FROM sessions WHERE id=? AND user_id=?", (sid, USER_ID)).fetchone()
+    if not s:
+        raise HTTPException(404)
+    if not s["analyzed_at"]:
+        queue_analysis([sid])
     return {"ok": True}
 
 
@@ -252,7 +287,7 @@ def report(sid: int) -> dict:
     if not s:
         raise HTTPException(404)
     if not s["analyzed_at"]:
-        return {"ready": False}
+        return {"ready": False, "pending": is_queued(sid)}
     return {"ready": True, "metrics": json.loads(s["metrics"] or "{}"), "report": json.loads(s["report"] or "{}")}
 
 

@@ -1,5 +1,6 @@
 """End-to-end API test: native language profile, start a session, chat (incl. help and Turkish), end, wait for the
-report; then a Spanish turn, a database from before native languages, and Ollama down.
+report; then a Spanish turn, a database from before native languages, Ollama down, and the past sessions list with
+"Generate report" (no model: a fake Ollama that answers slowly with an error).
 
 Usage: uv run tests/smoke.py
 Needs Ollama running with the configured chat and analysis models. Uses a temp DB.
@@ -10,7 +11,11 @@ import json
 import sqlite3
 import sys
 import tempfile
+import threading
 import time
+from contextlib import contextmanager
+from datetime import datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import httpx
@@ -92,6 +97,131 @@ def stale_session() -> list[str]:
         if (rep := wait_report(c, 1, tries=20, wait=0.5)) != {"ready": True, "metrics": metrics, "report": {}}:
             failures.append(f"stale session not analyzed on start: {rep}")
     print("stale-session checks:", "ok" if not failures else failures)
+    return failures
+
+
+def new_db(prefix: str) -> tuple[Path, sqlite3.Connection]:
+    """A database built with the app's schema before the server starts, for states the API can't create quickly."""
+    db_path = Path(tempfile.mkdtemp(prefix=prefix)) / "test.db"
+    db = sqlite3.connect(db_path)
+    db.executescript(memory.SCHEMA)
+    return db_path, db
+
+
+@contextmanager
+def slow_ollama(delay: float = 5):
+    """Answers every request with a 500 after `delay` seconds, so an analysis stays running long enough to be asked
+    for again, then fails without a model."""
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            time.sleep(delay)
+            self.send_response(500)
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+
+
+def past_sessions() -> list[str]:
+    """GET /api/sessions (paging, order, empty sessions left out, titles in the native language, counts) and
+    "Generate report" through POST /end: never two jobs for one session, never a second analysis of an analyzed one,
+    and a failed analysis can be asked for again."""
+    failures = []
+    db_path, db = new_db("coach-history-")
+    db.execute("INSERT INTO profile(user_id, name, level, about, native_language) VALUES ('test', '', 'A2', '', 'tr')")
+    recent = datetime.now().isoformat(timespec="seconds")
+
+    def session(sid: int, user_turns: int, ended: bool = True, report: dict | None = None, at: str = recent) -> None:
+        db.execute("INSERT INTO sessions(id, user_id, scenario, model, prompt_version, system_prompt, started_at,"
+                   " ended_at, analyzed_at, metrics, report)"
+                   " VALUES (?, 'test', 'smalltalk', 'm', 'v', '', ?, ?, ?, ?, ?)",
+                   (sid, f"2026-01-{sid:02d}T10:00:00", at if ended else None, at if report is not None else None,
+                    "{}" if report is not None else None, json.dumps(report) if report is not None else None))
+        turn = "INSERT INTO turns(session_id, role, content, lang, created_at) VALUES (?, ?, ?, 'en', ?)"
+        db.execute(turn, (sid, "assistant", "Hi", at))
+        for _ in range(user_turns):
+            db.execute(turn, (sid, "user", "I go.", at))
+
+    for sid in range(1, 13):  # analyzed, sid % 3 errors each
+        session(sid, user_turns=2, report={"errors": [{"original": "I go."}] * (sid % 3)})
+    session(13, user_turns=0, report={})  # no learner turns: not listed
+    session(14, user_turns=3)  # ended, analysis failed earlier: retried at server start
+    session(15, user_turns=1, ended=False)  # abandoned, too short for the model
+    session(16, user_turns=2, ended=False)  # abandoned, needs the model
+    db.commit()
+    db.close()
+
+    with slow_ollama() as ollama, test_server(port=8795, OLLAMA_URL=ollama, COACH_DB=str(db_path)) as (base, log):
+        c = httpx.Client(base_url=base, timeout=30)
+        page1 = c.get("/api/sessions").json()
+        page2 = c.get("/api/sessions", params={"offset": 10}).json()
+        ids = [r["id"] for r in page1["sessions"] + page2["sessions"]]
+        if ids != [16, 15, 14, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1] or not page1["more"] or page2["more"]:
+            failures.append(f"paging or order wrong: {ids}, more={page1['more']}/{page2['more']}")
+        rows = {r["id"]: r for r in page1["sessions"] + page2["sessions"]}
+        if rows[12]["title"] != "Sohbet (hafta sonu, yemek, planlar)" or rows[12]["scenario"] != "smalltalk":
+            failures.append(f"title not in the native language: {rows[12]}")
+        want = {12: (2, 0, "ready"), 11: (2, 2, "ready"), 14: (3, None, "pending"), 15: (1, None, "none"),
+                16: (2, None, "none")}
+        got = {sid: (rows[sid]["messages"], rows[sid]["errors"], rows[sid]["report"]) for sid in want}
+        if got != want:
+            failures.append(f"row counts or report states wrong: {got}")
+        for params in ({"limit": 0}, {"limit": 51}, {"offset": -1}, {"offset": "x"}):
+            if c.get("/api/sessions", params=params).status_code != 422:
+                failures.append(f"paging params accepted: {params}")
+        if c.post("/api/session/999/end").status_code != 404:
+            failures.append("ending an unknown session did not 404")
+        if c.get("/api/session/16/report").json() != {"ready": False, "pending": False}:
+            failures.append("an abandoned session reports a pending analysis")
+
+        # 14 is being analyzed (startup retry); 16 is asked for three times in a row.
+        for sid in (14, 16, 16, 16):
+            if c.post(f"/api/session/{sid}/end").json() != {"ok": True}:
+                failures.append(f"POST /end {sid} failed")
+        if not c.get("/api/session/16/report").json()["pending"]:
+            failures.append("Generate report did not queue the analysis")
+        for _ in range(80):  # two failed jobs, each a slow analysis call plus a slow chat-model reload
+            if not c.get("/api/session/16/report").json()["pending"]:
+                break
+            time.sleep(0.5)
+        text = log.read_text()
+        for sid in (14, 16):
+            if (n := text.count(f"analyzing session {sid} ")) != 1:
+                failures.append(f"session {sid} analyzed {n} times at once, expected 1")
+        rows = {r["id"]: r for r in c.get("/api/sessions").json()["sessions"]}
+        if (rows[14]["report"], rows[16]["report"]) != ("none", "none"):
+            failures.append(f"failed analyses don't offer a retry: {rows[14]['report']}, {rows[16]['report']}")
+        c.post("/api/session/16/end")  # a retry after a failure runs again
+        time.sleep(0.5)
+        if log.read_text().count("analyzing session 16 ") != 2:
+            failures.append("a failed analysis could not be asked for again")
+
+        # 15 has one learner turn: ended and analyzed in code. Asking again changes nothing.
+        c.post("/api/session/15/end")
+        if not (rep := wait_report(c, 15, tries=40, wait=0.5))["ready"] or rep["report"] != {}:
+            failures.append(f"Generate report on an abandoned session gave no report: {rep}")
+        def analyzed_at() -> list:
+            return sqlite3.connect(db_path).execute("SELECT analyzed_at FROM sessions WHERE id IN (1, 15)").fetchall()
+
+        before = analyzed_at()
+        c.post("/api/session/15/end")
+        c.post("/api/session/1/end")
+        if c.get("/api/session/1/report").json().get("pending") is not None:
+            failures.append("an analyzed session reports pending")
+        time.sleep(1)
+        if analyzed_at() != before:
+            failures.append("an analyzed session was analyzed again")
+        if c.post("/api/session/15/message", json={"text": "Hello."}).status_code != 409:
+            failures.append("a session ended by Generate report accepted a message")
+    print("past-sessions checks:", "ok" if not failures else failures)
     return failures
 
 
@@ -247,6 +377,7 @@ def main() -> int:
     failures += old_database()
     failures += ollama_down()
     failures += stale_session()
+    failures += past_sessions()
     print("\nFAIL:\n- " + "\n- ".join(failures) if failures else "\nPASS")
     return 1 if failures else 0
 

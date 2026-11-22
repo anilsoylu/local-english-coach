@@ -20,6 +20,10 @@ STALE_AFTER = timedelta(hours=2)
 
 log = logging.getLogger("coach.analyze")
 _lock = threading.Lock()  # one analysis at a time: GPU holds one model
+# Sessions waiting for or in their analysis. queue_analysis adds a session before starting its job and the job removes
+# it when done, so asking again (End twice, "Generate report", the startup retry) never queues a second job for it.
+_queued: set[int] = set()
+_queued_lock = threading.Lock()
 
 # One error and one chunk, as clean_report and the database expect them.
 ERROR_ITEM = {"type": "object", "properties": {
@@ -179,12 +183,32 @@ def analysis_slot():
                     pass
 
 
+def queue_analysis(ids: list[int]) -> None:
+    """Analyzes the sessions one after another in a background thread, skipping any that already have a job queued
+    or running. Jobs from different calls wait for each other on the analysis slot."""
+    with _queued_lock:
+        ids = [i for i in ids if i not in _queued]
+        _queued.update(ids)
+    if ids:
+        threading.Thread(target=lambda: [analyze_session(i) for i in ids], daemon=True).start()
+
+
+def is_queued(sid: int) -> bool:
+    return sid in _queued
+
+
 def analyze_session(sid: int) -> None:
-    with analysis_slot():
-        try:
-            _analyze(sid)
-        except Exception:
-            log.exception("analysis failed for session %s (will retry on next start)", sid)
+    """One job from queue_analysis. _analyze checks analyzed_at under the slot's lock, so a session is never analyzed
+    twice even when a new job is queued just after the previous one finished."""
+    try:
+        with analysis_slot():
+            try:
+                _analyze(sid)
+            except Exception:
+                log.exception("analysis failed for session %s (the report screen offers a retry)", sid)
+    finally:
+        with _queued_lock:
+            _queued.discard(sid)
 
 
 def _analyze(sid: int) -> None:
@@ -197,20 +221,23 @@ def _analyze(sid: int) -> None:
     metrics = text_metrics(turns)
 
     offered = json.loads(s["offered_chunks"])
-    used = []
-    with db:
-        for cid in offered:
-            row = db.execute("SELECT phrase FROM chunks WHERE id=?", (cid,)).fetchone()
-            if row:
-                ok = memory.phrase_used(row["phrase"], user_texts)
-                memory.review_chunk(db, cid, ok)
-                if ok:
-                    used.append(row["phrase"])
+    # Leitner reviews are written in the same transaction as analyzed_at, so a failed model call followed by a retry
+    # doesn't move the phrases twice.
+    reviews = []
+    for cid in offered:
+        row = db.execute("SELECT phrase FROM chunks WHERE id=?", (cid,)).fetchone()
+        if row:
+            reviews.append((cid, row["phrase"], memory.phrase_used(row["phrase"], user_texts)))
     metrics["chunks_offered"] = len(offered)
-    metrics["chunks_used"] = used
+    metrics["chunks_used"] = [phrase for _, phrase, ok in reviews if ok]
+
+    def review_chunks() -> None:
+        for cid, _, ok in reviews:
+            memory.review_chunk(db, cid, ok)
 
     if metrics["user_turns"] < 2:
         with db:
+            review_chunks()
             db.execute("UPDATE sessions SET analyzed_at=?, metrics=?, report=? WHERE id=?",
                        (memory.now(), json.dumps(metrics), json.dumps({}), sid))
         return
@@ -223,6 +250,7 @@ def _analyze(sid: int) -> None:
     clean_report(rep, turns, known)
 
     with db:
+        review_chunks()
         for e in rep["errors"]:
             db.execute("INSERT INTO errors(session_id, kind, original, better, note) VALUES (?,?,?,?,?)",
                        (sid, e["kind"], e["original"], e["better"], e["note"]))
@@ -246,6 +274,5 @@ def retry_pending() -> None:
             "(SELECT session_id FROM turns GROUP BY session_id HAVING MAX(created_at) < ?)",
             (memory.now(), cutoff),
         )
-    ids = [r["id"] for r in db.execute("SELECT id FROM sessions WHERE ended_at IS NOT NULL AND analyzed_at IS NULL")]
-    if ids:
-        threading.Thread(target=lambda: [analyze_session(i) for i in ids], daemon=True).start()
+    ids = db.execute("SELECT id FROM sessions WHERE ended_at IS NOT NULL AND analyzed_at IS NULL").fetchall()
+    queue_analysis([r["id"] for r in ids])

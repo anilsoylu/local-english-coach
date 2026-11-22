@@ -8,6 +8,7 @@ Needs Ollama running with the configured chat and analysis models. Uses a temp D
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import sys
 import tempfile
@@ -169,6 +170,8 @@ def past_sessions() -> list[str]:
         rows = {r["id"]: r for r in page1["sessions"] + page2["sessions"]}
         if rows[12]["title"] != "Sohbet (hafta sonu, yemek, planlar)" or rows[12]["scenario"] != "smalltalk":
             failures.append(f"title not in the native language: {rows[12]}")
+        if not re.search(r"(Z|[+-]\d\d:\d\d)$", rows[12]["started_at"]):
+            failures.append(f"started_at has no UTC offset: {rows[12]['started_at']}")
         want = {12: (2, 0, "ready"), 11: (2, 2, "ready"), 14: (3, None, "pending"), 15: (1, None, "none"),
                 16: (2, None, "none")}
         got = {sid: (rows[sid]["messages"], rows[sid]["errors"], rows[sid]["report"]) for sid in want}

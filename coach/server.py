@@ -140,7 +140,7 @@ def sessions(offset: int = Query(0, ge=0), limit: int = Query(10, ge=1, le=50)) 
     return {
         "sessions": [{
             "id": r["id"], "scenario": r["scenario"], "title": scenario_title(r["scenario"], native),
-            "started_at": r["started_at"], "messages": r["messages"],
+            "started_at": memory.with_offset(r["started_at"]), "messages": r["messages"],
             "errors": len(json.loads(r["report"] or "{}").get("errors", [])) if r["analyzed_at"] else None,
             "report": "ready" if r["analyzed_at"] else "pending" if is_queued(r["id"]) else "none",
         } for r in rows[:limit]],
